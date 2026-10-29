@@ -15,7 +15,7 @@
 | `docker build --secret id=extra_ca,… -t sw-design-helper .` | 성공(이 환경은 TLS 검사 프록시·Docker Hub 429 때문에 기반 이미지를 mirror.gcr.io에서 받아 태그, 사내 CA를 빌드 비밀로 전달) |
 | 컨테이너 실행·교체 시험(§5) | 비밀값 없으면 기동 거부, 동일 출처 화면·API, 비루트 실행, 볼륨으로 재배포 후 데이터 유지 |
 | `claude -p … --tools ""` (CLAUDE.md import 확인) | `agent.md`에만 있는 값(`sw-design-helper`)을 답함 → `@agent.md` 자동 로드 확인 |
-| GitHub Actions CI | 2026-10-29 작업 종료 시점 결과는 HANDOFF 참고(이 환경에서 직접 실행 불가, 원격 실행 결과를 조회) |
+| GitHub Actions CI run #1(커밋 ce87b9f) | **4개 job 모두 성공**: backend(88 passed, 1 skipped — 러너에 LibreOffice가 없어 엑셀 재계산 테스트 건너뜀, 이 테스트는 로컬에서 통과), frontend(타입검사·빌드), e2e(운영 모드 서버 + Chromium), docker(이미지 빌드). 경고: actions/checkout@v4·setup-uv@v5가 Node 20 대상이라는 GitHub 안내(동작에는 영향 없음) |
 
 ## 2. 독립 기대값(구현 함수를 호출하지 않고 만든 값)
 

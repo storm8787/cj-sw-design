@@ -25,7 +25,7 @@
 
 ## 3. 테스트 결과 (상세: `docs/VALIDATION.md`)
 - 백엔드 pytest **89 passed**(2026-10-29), 프런트 타입검사·빌드 성공, 브라우저 E2E 통과, Docker 빌드·실행·재배포 영속성 확인.
-- GitHub Actions(`.github/workflows/ci.yml`): 푸시 후 원격 결과는 저장소 Actions 탭에서 확인. 이 세션 종료 시점 상태는 아래 §6.
+- GitHub Actions(`.github/workflows/ci.yml`): run #1(ce87b9f) backend·frontend·e2e·docker 모두 성공(backend 88 passed / 1 skipped: 러너에 LibreOffice 없음). 이후 문서 커밋의 실행 결과는 Actions 탭에서 확인.
 
 ## 4. 알려진 문제·제약
 1. KOSA 가이드 원문 미확인(네트워크 차단) — 단가 605,784원은 '2024 가이드' 표기 양식값, 이윤율 0.20은 양식 예시값, 끝수·단계 비율은 시스템/사용자 설정. `docs/FP_RULES.md §8`.
