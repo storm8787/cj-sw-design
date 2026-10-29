@@ -97,7 +97,7 @@ def _add_proposal(p: Project, m: Mutation, kind: str, mode: str, job_id: str, su
 def task_questions(app, ctx: JobContext, params: dict[str, Any]) -> dict[str, Any]:
     pid = params["_project_id"]
     p, _ = app.store.get(pid)
-    prov = app.provider_for(p)
+    prov = app.provider_for_job(p, params)
     warnings: list[str] = []
     ctx.progress(0.2, "질문 생성 중")
     if prov.is_real_ai:
@@ -138,7 +138,7 @@ def task_requirements(app, ctx: JobContext, params: dict[str, Any]) -> dict[str,
     pid = params["_project_id"]
     feature_text: str = params.get("feature_text", "")
     p, _ = app.store.get(pid)
-    prov = app.provider_for(p)
+    prov = app.provider_for_job(p, params)
     user_lines = sample.split_feature_lines(feature_text)
     ctx.progress(0.2, "요구사항 정리 중")
     if prov.is_real_ai:
@@ -198,7 +198,7 @@ def _validate_design(p: Project, o: S.DesignOut) -> list[str]:
 def task_design(app, ctx: JobContext, params: dict[str, Any]) -> dict[str, Any]:
     pid = params["_project_id"]
     p, _ = app.store.get(pid)
-    prov = app.provider_for(p)
+    prov = app.provider_for_job(p, params)
     ctx.progress(0.2, "설계 초안 작성 중")
     if prov.is_real_ai:
         user = ("요구사항을 바탕으로 기능설계·데이터·연계·화면·업무흐름 초안을 만드십시오. key는 응답 안에서만 쓰는 임시 키입니다(f1, d1 등). "
@@ -236,7 +236,7 @@ def task_design(app, ctx: JobContext, params: dict[str, Any]) -> dict[str, Any]:
 def task_fp(app, ctx: JobContext, params: dict[str, Any]) -> dict[str, Any]:
     pid = params["_project_id"]
     p, _ = app.store.get(pid)
-    prov = app.provider_for(p)
+    prov = app.provider_for_job(p, params)
     mode = mode_of(prov)
     ctx.progress(0.2, "FP 후보 분류 중")
     if prov.is_real_ai:
@@ -281,7 +281,7 @@ def task_doc_analysis(app, ctx: JobContext, params: dict[str, Any]) -> dict[str,
     pid = params["_project_id"]
     did = params["document_id"]
     p, _ = app.store.get(pid)
-    prov = app.provider_for(p)
+    prov = app.provider_for_job(p, params)
     mode = mode_of(prov)
     doc = next((d for d in p.documents if d.id == did), None)
     if doc is None:

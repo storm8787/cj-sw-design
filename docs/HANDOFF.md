@@ -1,7 +1,7 @@
 # HANDOFF — 인수인계 (최종 갱신 2026-10-29)
 
 ## 1. 현재 위치
-- 저장소: `storm8787/cj-sw-design`(2026-10-29 사용자가 Public으로 전환) · 작업 브랜치: `claude/kind-franklin-pjcpsr` · PR #1·#2 병합 완료. 이후 여러 AI 연결·실제 OpenAI 검증 커밋은 브랜치에만 있음
+- 저장소: `storm8787/cj-sw-design`(2026-10-29 사용자가 Public으로 전환) · 작업 브랜치: `claude/kind-franklin-pjcpsr` · PR #1·#2 병합 완료, PR #3(여러 AI 연결·실제 OpenAI 검증) 진행 중
 - 최근 커밋: `git log --oneline -5`로 확인. 문서(지침) → 백엔드 → 화면·E2E·배포 → 문서 마무리 순.
 - PR: 만들지 않음(요청 시 생성).
 
@@ -25,7 +25,7 @@
 | 실제 AI 호출 | OpenAI 검증 / 그 외 **미검증** | OpenAI `gpt-6.1-sol`로 질문·요구사항·설계·FP 후보·문서 추출 모두 성공(VALIDATION §5-3, 발견된 문제 4건 수정). Anthropic·사내/상용 LLM은 실제 호출 미검증 |
 
 ## 3. 테스트 결과 (상세: `docs/VALIDATION.md`)
-- 백엔드 pytest **115 passed**(2026-10-29, 실제 OpenAI 검증 후), 프런트 타입검사·빌드 성공, 브라우저 E2E 통과, Docker 빌드·실행·재배포 영속성 확인.
+- 백엔드 pytest **117 passed**(2026-10-29, 실제 OpenAI 검증·PR #3 리뷰 수정 후), 프런트 타입검사·빌드 성공, 브라우저 E2E 통과, Docker 빌드·실행·재배포 영속성 확인.
 - GitHub Actions(`.github/workflows/ci.yml`): run #1(ce87b9f) backend·frontend·e2e·docker 모두 성공(backend 88 passed / 1 skipped: 러너에 LibreOffice 없음). 이후 문서 커밋의 실행 결과는 Actions 탭에서 확인.
 
 ## 4. 알려진 문제·제약

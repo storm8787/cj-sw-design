@@ -228,3 +228,38 @@ def test_timeout_reported_as_timeout_not_connection():
     p.client = p.client.with_options(max_retries=0)
     with pytest.raises(AIError, match="시간 초과"):
         p.generate_json("t", "s", "u", {})
+
+
+def test_env_example_starts_without_ai_key(env):
+    """`.env.example`을 그대로 복사해도(키 없음) 샘플 모드로 기동해야 한다(PR #3 리뷰 지적)."""
+    from pathlib import Path
+    for ln in (Path(__file__).resolve().parents[2] / ".env.example").read_text(encoding="utf-8").splitlines():
+        if ln.strip() and not ln.lstrip().startswith("#") and "=" in ln:
+            k, v = ln.split("=", 1)
+            if k.startswith(("AI_", "OPENAI_", "ANTHROPIC_", "LLM_")):
+                env.setenv(k.strip(), v.strip())
+    s = load_settings()
+    assert s.ai_default == "sample"
+
+
+def test_job_keeps_submitted_profile_on_retry(app_factory):
+    """대기·재시도 중 프로젝트 연결이 바뀌어도 제출 때 연결(동의 기준)로 실행, 없어진 연결은 바꾸지 않고 실패(PR #3 리뷰 지적)."""
+    class External(MockProvider):
+        external = True
+
+    mock = External()
+    mock.responses = {"questions": [json.dumps({"questions": []})]}
+    app = app_factory(provider=mock)
+    c = client_for(app)
+    db = app.state.ctx.db
+    pid = c.post("/api/projects", json={"name": "x", "overview": {"idea_text": "민원 접수"}}).json()["project"]["id"]
+    c.patch(f"/api/projects/{pid}", json={"ai_profile": "sample"})
+    j = c.post(f"/api/projects/{pid}/ai/questions", json={}).json()["job"]  # 샘플: 동의 불필요
+    assert j["result"]["mode"] == "sample"
+    c.patch(f"/api/projects/{pid}", json={"ai_profile": ""})  # 이후 외부 연결(mock)로 변경
+    db.execute("UPDATE jobs SET status='failed' WHERE id=?", (j["id"],))
+    r = c.post(f"/api/jobs/{j['id']}/retry").json()
+    assert r["status"] == "succeeded" and r["result"]["mode"] == "sample" and mock.calls == []  # 동의 없는 외부 전송 없음
+    db.execute("UPDATE jobs SET status='failed', params=? WHERE id=?", (json.dumps({"profile": "없어진연결"}), j["id"]))
+    r = c.post(f"/api/jobs/{j['id']}/retry").json()
+    assert r["status"] == "failed" and "바꾸지 않았습니다" in r["error"] and mock.calls == []
