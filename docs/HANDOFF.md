@@ -1,7 +1,7 @@
 # HANDOFF — 인수인계 (최종 갱신 2026-10-29)
 
 ## 1. 현재 위치
-- 저장소: `storm8787/cj-sw-design`(Private) · 작업 브랜치: `claude/kind-franklin-pjcpsr` (기본 브랜치 `main`에는 병합하지 않음)
+- 저장소: `storm8787/cj-sw-design`(2026-10-29 사용자가 Public으로 전환) · 작업 브랜치: `claude/kind-franklin-pjcpsr` · PR #1 병합 완료, PR #2(리뷰 지적 수정) 진행 중
 - 최근 커밋: `git log --oneline -5`로 확인. 문서(지침) → 백엔드 → 화면·E2E·배포 → 문서 마무리 순.
 - PR: 만들지 않음(요청 시 생성).
 
@@ -62,4 +62,5 @@ cd backend && APP_ENV=development AUTH_DISABLED=true uv run uvicorn app.main:cre
 ## 7. 외부 설정 필요사항
 - 운영: `SECRET_KEY`, `ADMIN_PASSWORD_HASH`(또는 `ADMIN_PASSWORD`), HTTPS 프록시와 `COOKIE_SECURE=true`, `/data` 볼륨 백업.
 - AI 사용 시: `AI_PROVIDER=anthropic`, `ANTHROPIC_API_KEY`, `AI_MODEL`(예: `claude-opus-5-5`). 외부 전송 동의 정책을 기관 보안 지침과 맞출 것.
-- GitHub Actions가 Private 저장소에서 실행되려면 저장소 Actions 설정·사용 한도 확인.
+- GitHub Actions: 비공개 상태에서는 계정 결제·지출 한도 문제로 작업 시작이 거부되었음(2026-10-29). Public 전환 후 정상 실행. 다시 비공개로 바꾸면 Billing & plans의 Actions 한도를 확인해야 함.
+- 공개 저장소이므로 실제 사업 문서·DB·키·`.env`는 절대 커밋하지 않는다(.gitignore로 차단, 이력 점검 완료).
