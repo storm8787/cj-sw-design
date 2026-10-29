@@ -1,0 +1,96 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          version: "0.11.32"
+      - name: 의존성 설치
+        working-directory: backend
+        run: uv sync --frozen
+      - name: 백엔드 테스트(AI는 sample/mock — 실제 AI 호출 없음)
+        working-directory: backend
+        run: uv run pytest -q
+        # LibreOffice가 없으면 엑셀 재계산 테스트 1건은 건너뜀(로컬에서 실행)
+
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - working-directory: frontend
+        run: npm ci
+      - name: 타입 검사
+        working-directory: frontend
+        run: npm run typecheck
+      - name: 빌드
+        working-directory: frontend
+        run: npm run build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: frontend/dist
+
+  e2e:
+    needs: [backend, frontend]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          version: "0.11.32"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: actions/download-artifact@v4
+        with:
+          name: frontend-dist
+          path: frontend/dist
+      - working-directory: backend
+        run: uv sync --frozen --no-dev
+      - name: 서버 실행(운영 모드, 인증 사용)
+        working-directory: backend
+        env:
+          APP_ENV: production
+          DATA_DIR: ${{ runner.temp }}/swd-data
+          ADMIN_PASSWORD: ci-e2e-password-1
+          SECRET_KEY: ci-only-secret-key-not-for-production-0123456789
+        run: |
+          nohup uv run uvicorn app.main:create_app --factory --host 127.0.0.1 --port 8000 > ${{ runner.temp }}/server.log 2>&1 &
+          for i in $(seq 1 30); do curl -sf http://127.0.0.1:8000/api/health && break; sleep 1; done
+      - name: Playwright 설치
+        working-directory: e2e
+        run: npm ci --no-audit --no-fund && npx playwright install --with-deps chromium
+      - name: 브라우저 E2E
+        env:
+          E2E_PASSWORD: ci-e2e-password-1
+        run: node e2e/flow.cjs
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-output
+          path: |
+            e2e/output
+            ${{ runner.temp }}/server.log
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: 이미지 빌드(푸시 안 함)
+        run: docker build -t sw-design-helper:ci .

@@ -218,3 +218,32 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# --- 정보화 설계 도우미 ---
+# 실행 데이터·업로드 원문·DB·생성 결과·로그 (Git 금지)
+data/
+/data*/
+*.sqlite
+*.sqlite3
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+# 생성 엑셀·업로드 문서 (테스트 fixture는 코드로 생성)
+*.xlsx
+*.xlsm
+*.hwp
+*.hwpx
+*.pdf
+*.docx
+!docs/**/*.md
+# 프런트엔드
+node_modules/
+frontend/dist/
+# E2E 산출물
+e2e/output/
+test-results/
+playwright-report/
+.env.*
+!.env.example
+*.tsbuildinfo
