@@ -30,7 +30,7 @@ COST_LABELS = [
     ("compatibility", re.compile(r"(운영\s*환경|다중\s*사이트)")),
     ("security", re.compile(r"보안\s*(성|요구)")),
     ("dev", re.compile(r"(개발\s*원가|보정\s*후\s*개발원가)")),
-    ("profit", re.compile(r"^\s*이윤")),
+    ("profit", re.compile(r"^\s*이윤(?!\s*율)")),  # 이윤율(비율) 행은 금액으로 읽지 않음
     ("direct", re.compile(r"직접\s*경비")),
     ("supply", re.compile(r"(개발비\s*\(?\s*부가세\s*별도|공급\s*가액|부가세\s*별도)")),
     ("vat", re.compile(r"(부가\s*가치세|^\s*부가세\s*$|VAT)")),
@@ -245,8 +245,12 @@ def run_review(p: Project, docs: list[DocumentMeta], chunks: dict[str, list[tupl
                 out.append(_f(category="FP 합계", verdict="diff", location=f"{d.file_name} {t['total_loc']}", original_value=f"기재 합계 {_won(t['total_declared'])}", compared_value=f"행 합계 {_won(decl_sum)}", reason="FP 합계가 행별 점수의 합과 다릅니다.", suggestion="합계 수식 확인·수정", question_to_vendor="FP 합계 산출 방식을 확인해 주십시오.", document_ids=[d.id]))
             else:
                 out.append(_f(category="FP 합계", verdict="match", location=f"{d.file_name} {t['total_loc']}", original_value=_won(t["total_declared"]), compared_value=_won(decl_sum), reason="기재 합계와 행 합계가 같습니다.", document_ids=[d.id]))
-        if not wrong:
-            out.append(_f(category="FP 가중치", verdict="match", location=d.file_name, reason=f"{len(t['rows'])}행 가중치가 기준({'정통법 복잡도표' if t['method'] == 'detailed' else '간이법'})과 일치(재계산 합 {_won(exp_sum)}).", document_ids=[d.id]))
+        compared = [x for x in t["rows"] if x["weight"] is not None and x["expected"] is not None]
+        unverifiable = [x for x in t["rows"] if x["weight"] is None or x["expected"] is None]
+        if unverifiable:
+            out.append(_f(category="FP 가중치", verdict="insufficient", location=d.file_name, original_value=", ".join(f"{x['row']}행" for x in unverifiable[:20]), reason=f"{len(unverifiable)}행은 가중치 값(수식 캐시값 포함)이나 DET·FTR/RET가 없어 가중치를 비교하지 못했습니다.", question_to_vendor="해당 행의 가중치와 DET·FTR/RET 값을 기재한 산정표를 제출해 주십시오.", document_ids=[d.id]))
+        if compared and not wrong:
+            out.append(_f(category="FP 가중치", verdict="match", location=d.file_name, reason=f"비교 가능한 {len(compared)}행의 가중치가 기준({'정통법 복잡도표' if t['method'] == 'detailed' else '간이법'})과 일치(재계산 합 {_won(exp_sum)})." + (f" 비교 못 한 {len(unverifiable)}행은 별도 표시." if unverifiable else ""), document_ids=[d.id]))
 
     # C. 금액 재계산
     cost_docs = by_kind.get("vendor_cost", [])

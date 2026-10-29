@@ -473,6 +473,15 @@ async def upload(pid: str, request: Request, file: UploadFile = File(...), kind:
     return {"document": doc.model_dump(), **ok_project(c, pid)}
 
 
+def doc_path(c: AppCtx, pid: str, d: DocumentMeta):
+    """문서 원본 경로. 프로젝트 files 디렉터리 밖이면 거부한다."""
+    base = (c.store.project_dir(pid) / "files").resolve()
+    f = (base / d.stored_name).resolve()
+    if not d.stored_name or base not in f.parents:
+        raise NotFound("원본 파일 경로가 올바르지 않습니다.")
+    return f
+
+
 def _doc(p, did: str) -> DocumentMeta:
     d = next((x for x in p.documents if x.id == did), None)
     if not d:
@@ -485,8 +494,8 @@ def download_doc(pid: str, did: str, request: Request):
     c = C(request)
     p, _ = c.store.get(pid)
     d = _doc(p, did)
-    f = (c.store.project_dir(pid) / "files" / d.stored_name).resolve()
-    if c.store.project_dir(pid).resolve() not in f.parents or not f.is_file():
+    f = doc_path(c, pid, d)
+    if not f.is_file():
         raise NotFound("원본 파일이 없습니다(백업 복원본은 원본을 포함하지 않음).")
     return Response(f.read_bytes(), media_type="application/octet-stream", headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(d.file_name)}"})
 
@@ -541,8 +550,8 @@ def delete_doc(pid: str, did: str, request: Request):
         m.log("documents", did, "delete", {"file_name": d.file_name}, None)
         return d
 
+    f = doc_path(c, pid, _doc(c.store.get(pid)[0], did))
     _, _, d = c.store.mutate(pid, actor(c), fn)
-    f = c.store.project_dir(pid) / "files" / d.stored_name
     if f.is_file():
         f.unlink()
     c.db.execute("DELETE FROM doc_chunks WHERE project_id=? AND document_id=?", (pid, did))
@@ -596,7 +605,7 @@ def review(pid: str, body: ReviewIn, request: Request):
     files: dict[str, bytes] = {}
     for d in docs:
         chunks[d.id] = [(r["location"], r["text"]) for r in c.db.query("SELECT location,text FROM doc_chunks WHERE project_id=? AND document_id=? ORDER BY seq", (pid, d.id))]
-        f = c.store.project_dir(pid) / "files" / d.stored_name
+        f = doc_path(c, pid, d)
         if f.is_file() and d.format in ("xlsx", "xlsm"):
             files[d.id] = f.read_bytes()
     findings = run_review(p, docs, chunks, files, std_of(c, p))
