@@ -380,6 +380,7 @@ class Proposal(M):
     kind: str = ""
     created_at: str = ""
     mode: str = ""
+    source: str = ""  # 만든 AI 연결 표시(예: 'OpenAI(ChatGPT) · 모델명')
     job_id: str = ""
     status: Literal["pending", "partial", "applied", "rejected"] = "pending"
     summary: str = ""
@@ -409,6 +410,7 @@ class Project(M):
     created_at: str = ""
     updated_at: str = ""
     overview: Overview = Field(default_factory=Overview)
+    ai_profile: str = ""  # 이 프로젝트에 쓸 AI 연결 이름(비우면 서버 기본 연결)
     counters: dict[str, int] = Field(default_factory=dict)
     requirements: list[Requirement] = Field(default_factory=list)
     workflows: list[WorkflowStep] = Field(default_factory=list)

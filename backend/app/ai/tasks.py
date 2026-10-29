@@ -84,12 +84,12 @@ def call_ai(provider: AIProvider, task: str, user: str, model_cls: type[BaseMode
     raise AIError(f"AI 응답 검증 실패({max_attempts}회): {last_err[:300]}")
 
 
-def _add_proposal(p: Project, m: Mutation, kind: str, mode: str, job_id: str, summary: str, items: list[ProposalItem], warnings: list[str]) -> Proposal:
+def _add_proposal(p: Project, m: Mutation, kind: str, mode: str, job_id: str, summary: str, items: list[ProposalItem], warnings: list[str], source: str = "") -> Proposal:
     from ..store import next_id
 
-    pr = Proposal(id=next_id(p, "PR"), kind=kind, created_at=now(), mode=mode, job_id=job_id, summary=summary, warnings=warnings, items=items)
+    pr = Proposal(id=next_id(p, "PR"), kind=kind, created_at=now(), mode=mode, source=source, job_id=job_id, summary=summary, warnings=warnings, items=items)
     p.proposals.append(pr)
-    m.log("proposals", pr.id, "add", None, {"kind": kind, "items": len(items), "mode": mode})
+    m.log("proposals", pr.id, "add", None, {"kind": kind, "items": len(items), "mode": mode, "source": source})
     return pr
 
 
@@ -97,7 +97,7 @@ def _add_proposal(p: Project, m: Mutation, kind: str, mode: str, job_id: str, su
 def task_questions(app, ctx: JobContext, params: dict[str, Any]) -> dict[str, Any]:
     pid = params["_project_id"]
     p, _ = app.store.get(pid)
-    prov = app.provider
+    prov = app.provider_for(p)
     warnings: list[str] = []
     ctx.progress(0.2, "질문 생성 중")
     if prov.is_real_ai:
@@ -130,7 +130,7 @@ def task_questions(app, ctx: JobContext, params: dict[str, Any]) -> dict[str, An
         return ids
 
     _, _, ids = app.store.mutate(pid, mode_of(prov), apply)
-    return {"added": ids, "warnings": warnings, "mode": mode_of(prov), "message": "새로 물어볼 질문이 없습니다." if not ids else f"질문 {len(ids)}개"}
+    return {"added": ids, "warnings": warnings, "mode": mode_of(prov), "source": prov.display(), "message": "새로 물어볼 질문이 없습니다." if not ids else f"질문 {len(ids)}개"}
 
 
 # ---------------------------------------------------------------- 요구사항 초안
@@ -138,7 +138,7 @@ def task_requirements(app, ctx: JobContext, params: dict[str, Any]) -> dict[str,
     pid = params["_project_id"]
     feature_text: str = params.get("feature_text", "")
     p, _ = app.store.get(pid)
-    prov = app.provider
+    prov = app.provider_for(p)
     user_lines = sample.split_feature_lines(feature_text)
     ctx.progress(0.2, "요구사항 정리 중")
     if prov.is_real_ai:
@@ -173,8 +173,8 @@ def task_requirements(app, ctx: JobContext, params: dict[str, Any]) -> dict[str,
         existing.add(norm(d.title))
         origin = "user" if d.from_user else mode_of(prov)
         items.append(ProposalItem(key=f"r{i}", op="add", collection="requirements", data={"kind": d.kind, "category": d.category, "title": d.title, "original_text": d.original_text, "description": d.description, "priority": d.priority, "acceptance": d.acceptance, "why": d.why, "origin": origin, "status": "draft"}, reason=d.why))
-    _, _, pr = app.store.mutate(pid, mode_of(prov), lambda p, m: _add_proposal(p, m, "requirements", mode_of(prov), params["_job_id"], f"요구사항 변경안 {len(items)}건(사용자 기능 {sum(1 for x in items if x.data['origin'] == 'user')}건, 제안 {sum(1 for x in items if x.data['origin'] != 'user')}건)", items, warnings))
-    return {"proposal_id": pr.id, "items": len(items), "warnings": warnings, "mode": mode_of(prov)}
+    _, _, pr = app.store.mutate(pid, mode_of(prov), lambda p, m: _add_proposal(p, m, "requirements", mode_of(prov), params["_job_id"], f"요구사항 변경안 {len(items)}건(사용자 기능 {sum(1 for x in items if x.data['origin'] == 'user')}건, 제안 {sum(1 for x in items if x.data['origin'] != 'user')}건)", items, warnings, prov.display()))
+    return {"proposal_id": pr.id, "items": len(items), "warnings": warnings, "mode": mode_of(prov), "source": prov.display()}
 
 
 # ---------------------------------------------------------------- 설계 초안
@@ -198,7 +198,7 @@ def _validate_design(p: Project, o: S.DesignOut) -> list[str]:
 def task_design(app, ctx: JobContext, params: dict[str, Any]) -> dict[str, Any]:
     pid = params["_project_id"]
     p, _ = app.store.get(pid)
-    prov = app.provider
+    prov = app.provider_for(p)
     ctx.progress(0.2, "설계 초안 작성 중")
     if prov.is_real_ai:
         user = ("요구사항을 바탕으로 기능설계·데이터·연계·화면·업무흐름 초안을 만드십시오. key는 응답 안에서만 쓰는 임시 키입니다(f1, d1 등). "
@@ -228,15 +228,15 @@ def task_design(app, ctx: JobContext, params: dict[str, Any]) -> dict[str, Any]:
         items.append(ProposalItem(key=s.key, op="add", collection="screens", data={"name": s.name, "users": s.users, "description": s.description, "function_ids": [f"key:{k}" for k in s.function_keys if k in keys_f], "origin": mode, "status": "draft"}, reason=s.reason))
     for w in out.workflows:
         items.append(ProposalItem(key=w.key, op="add", collection="workflows", data={"order": w.order, "name": w.name, "actor": w.actor, "description": w.description, "requirement_ids": [x for x in w.requirement_ids if x in req_ids], "origin": mode, "status": "draft"}, reason="업무 흐름 초안"))
-    _, _, pr = app.store.mutate(pid, mode, lambda p, m: _add_proposal(p, m, "design", mode, params["_job_id"], f"설계 변경안: 기능 {len(out.functions)}, 데이터 {len(out.data_entities)}, 연계 {len(out.interfaces)}, 화면 {len(out.screens)}", items, warnings))
-    return {"proposal_id": pr.id, "items": len(items), "warnings": warnings, "mode": mode}
+    _, _, pr = app.store.mutate(pid, mode, lambda p, m: _add_proposal(p, m, "design", mode, params["_job_id"], f"설계 변경안: 기능 {len(out.functions)}, 데이터 {len(out.data_entities)}, 연계 {len(out.interfaces)}, 화면 {len(out.screens)}", items, warnings, prov.display()))
+    return {"proposal_id": pr.id, "items": len(items), "warnings": warnings, "mode": mode, "source": prov.display()}
 
 
 # ---------------------------------------------------------------- FP 후보
 def task_fp(app, ctx: JobContext, params: dict[str, Any]) -> dict[str, Any]:
     pid = params["_project_id"]
     p, _ = app.store.get(pid)
-    prov = app.provider
+    prov = app.provider_for(p)
     mode = mode_of(prov)
     ctx.progress(0.2, "FP 후보 분류 중")
     if prov.is_real_ai:
@@ -269,8 +269,8 @@ def task_fp(app, ctx: JobContext, params: dict[str, Any]) -> dict[str, Any]:
             "data_ids": [x for x in d.data_ids if x in dat_ids], "origin": mode, "status": "draft"}, reason=d.rationale or d.uncertainty))
     if not p.overview.boundary_name:
         warnings.append("측정 대상 애플리케이션(경계)이 지정되지 않았습니다. 개요에서 먼저 정하세요.")
-    _, _, pr = app.store.mutate(pid, mode, lambda p, m: _add_proposal(p, m, "fp_candidates", mode, params["_job_id"], f"FP 후보 {len(items)}건(모두 '초안' — 검토 후 확정해야 견적에 반영)", items, warnings))
-    return {"proposal_id": pr.id, "items": len(items), "warnings": warnings, "mode": mode}
+    _, _, pr = app.store.mutate(pid, mode, lambda p, m: _add_proposal(p, m, "fp_candidates", mode, params["_job_id"], f"FP 후보 {len(items)}건(모두 '초안' — 검토 후 확정해야 견적에 반영)", items, warnings, prov.display()))
+    return {"proposal_id": pr.id, "items": len(items), "warnings": warnings, "mode": mode, "source": prov.display()}
 
 
 # ---------------------------------------------------------------- 참고문서 분석(장문 분할)
@@ -280,9 +280,9 @@ def task_doc_analysis(app, ctx: JobContext, params: dict[str, Any]) -> dict[str,
 
     pid = params["_project_id"]
     did = params["document_id"]
-    prov = app.provider
-    mode = mode_of(prov)
     p, _ = app.store.get(pid)
+    prov = app.provider_for(p)
+    mode = mode_of(prov)
     doc = next((d for d in p.documents if d.id == did), None)
     if doc is None:
         raise UserFacingError("문서를 찾을 수 없습니다.")
@@ -338,4 +338,4 @@ def task_doc_analysis(app, ctx: JobContext, params: dict[str, Any]) -> dict[str,
         p, _ = app.store.get(pid)
         d = next(x for x in p.documents if x.id == did)
         ctx.progress(d.extraction.chunks_analyzed / total, f"{d.extraction.chunks_analyzed}/{total} 구간 분석")
-    return {"added": added, "warnings": warnings[:50], "mode": mode}
+    return {"added": added, "warnings": warnings[:50], "mode": mode, "source": prov.display()}

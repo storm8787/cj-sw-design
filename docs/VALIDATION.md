@@ -78,6 +78,11 @@
   2. 가중치 값이 없는 FP 행을 '확인 일치'로 보고 → 비교 못 한 행은 '근거 부족'으로 별도 표시, 일치는 비교한 행이 있을 때만.
   3. '이윤율' 행을 이윤 금액으로 읽음 → 이윤 금액 라벨에서 '이윤율' 제외.
 
+## 5-2. 여러 AI 연결(2026-10-29)
+- `backend/tests/test_ai_providers.py` 17건 통과, 전체 pytest **109 passed**, 프런트 타입검사·빌드, 브라우저 E2E(샘플 모드) 통과.
+- 확인 내용: 환경변수별 연결 등록·기본값(OpenAI 키 있으면 openai, 없으면 sample)·불완전 설정 거부, OpenAI 요청 형식(chat/completions, Bearer 키, json_schema strict, 미지원 제약 제거), 거절·잘림·빈 응답·401/404/429/500 한국어 사유, 호환 LLM prompt 모드(코드블록 속 JSON 추출, response_format 미전송)·json_object 모드, API 전체 경로(동의 없으면 거부 → 동의 후 OpenAI 어댑터 → 질문 저장·출처 표시), 프로젝트별 연결 선택·없는 연결 거부.
+- **실제 OpenAI·Anthropic·사내 LLM 서비스 호출은 미검증**: 가짜 HTTP 전송 계층(MockTransport)으로만 시험.
+
 ## 6. 미검증 / 한계
 - 실제 AI 모델 호출(키 없음). 어댑터는 mock으로 검증 경로만 시험.
 - 실제 HWP 파일(샘플 없음) — 레코드 파서 단위 시험만. '실험적' 표시 유지.

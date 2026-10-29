@@ -8,7 +8,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, JSONResponse
 
 from .ai import tasks as ai_tasks
-from .ai.provider import AIProvider, build_provider
+from .ai.provider import AIProvider, ProviderRegistry
 from .auth import COOKIE, CSRF_HEADER, CSRF_VALUE, Auth
 from .config import Settings, load_settings
 from .db import Database
@@ -31,7 +31,7 @@ class AppCtx:
         self.db = Database(settings.data_dir / "app.db")
         self.store = ProjectStore(self.db, settings.data_dir)
         self.registry = StandardRegistry(settings.data_dir / "standards")
-        self.provider = provider or build_provider(settings)
+        self.ai = ProviderRegistry(settings, override=provider)
         self.auth = Auth(settings.secret_key, settings.admin_password_hash, settings.admin_password, settings.session_max_age, settings.auth_disabled)
         self.jobs = JobRunner(self.db, synchronous=synchronous_jobs)
         for kind, fn in (
@@ -42,6 +42,10 @@ class AppCtx:
             ("doc_analysis", ai_tasks.task_doc_analysis),
         ):
             self.jobs.register(kind, lambda ctx, params, fn=fn: fn(self, ctx, params))
+
+    def provider_for(self, project) -> AIProvider:
+        """프로젝트가 고른 AI 연결(없거나 사라졌으면 서버 기본 연결)."""
+        return self.ai.for_name(getattr(project, "ai_profile", ""))[0]
 
 
 PUBLIC = {"/api/health", "/api/auth/login", "/api/auth/me"}

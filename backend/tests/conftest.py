@@ -24,7 +24,7 @@ def make_settings(tmp: Path, **kw) -> Settings:
     s.data_dir = tmp
     s.secret_key = "x" * 40
     s.admin_password = PASSWORD
-    s.ai_provider = "sample"
+    s.ai_default = "sample"
     s.frontend_dist = None
     s.official_source_allowlist = ["www.postgresql.org", "example.org"]
     for k, v in kw.items():

@@ -17,6 +17,28 @@ def _bool(name: str, default: bool = False) -> bool:
     return v.strip().lower() in ("1", "true", "yes", "on")
 
 
+PROFILE_KINDS = ("openai", "anthropic", "compatible", "sample", "mock")
+
+
+@dataclass
+class AIProfile:
+    """AI 연결 하나. 여러 개를 동시에 설정하고 프로젝트마다 골라 쓴다."""
+
+    name: str
+    kind: str  # openai | anthropic | compatible | sample | mock
+    label: str
+    model: str = ""
+    api_key: str = ""
+    base_url: str = ""
+    json_mode: str = "json_schema"  # compatible 전용: json_schema | json_object | prompt
+    external: bool = True  # 외부 서버로 데이터가 나가는가(사내 설치형이면 false)
+    missing: list[str] = field(default_factory=list)  # 사용 불가 사유(비어 있으면 사용 가능)
+
+    @property
+    def usable(self) -> bool:
+        return not self.missing
+
+
 @dataclass
 class Settings:
     app_env: str = "production"
@@ -27,11 +49,9 @@ class Settings:
     auth_disabled: bool = False
     cookie_secure: bool = False
     session_max_age: int = 60 * 60 * 12
-    # AI
-    ai_provider: str = "sample"  # sample | anthropic | mock
-    ai_model: str = ""
-    anthropic_api_key: str = ""
-    anthropic_base_url: str = "https://api.anthropic.com"
+    # AI: 여러 연결(profile)을 동시에 설정, 기본 연결은 ai_default
+    ai_default: str = "sample"
+    ai_profiles: dict[str, AIProfile] = field(default_factory=dict)
     ai_timeout_sec: float = 120.0
     ai_max_output_tokens: int = 8000
     # 업로드
@@ -55,11 +75,14 @@ def load_settings() -> Settings:
     s.admin_password = os.environ.get("ADMIN_PASSWORD", "")
     s.auth_disabled = _bool("AUTH_DISABLED", False)
     s.cookie_secure = _bool("COOKIE_SECURE", False)
-    s.ai_provider = os.environ.get("AI_PROVIDER", "").strip().lower()
-    s.ai_model = os.environ.get("AI_MODEL", "").strip()
-    s.anthropic_api_key = os.environ.get("ANTHROPIC_API_KEY", "")
-    s.anthropic_base_url = os.environ.get("AI_BASE_URL", "https://api.anthropic.com").rstrip("/")
     s.ai_timeout_sec = float(os.environ.get("AI_TIMEOUT_SEC", "120"))
+    s.ai_max_output_tokens = int(os.environ.get("AI_MAX_OUTPUT_TOKENS", "8000"))
+    s.ai_profiles = load_ai_profiles()
+    default = os.environ.get("AI_PROVIDER", "").strip().lower()
+    if not default:
+        # 기본은 ChatGPT(OpenAI) 키. 키가 없으면 샘플 모드. 외부 전송은 요청마다 동의를 받는다.
+        default = "openai" if "openai" in s.ai_profiles else "sample"
+    s.ai_default = default
     s.max_upload_mb = int(os.environ.get("MAX_UPLOAD_MB", "30"))
     s.max_uncompressed_mb = int(os.environ.get("MAX_UNCOMPRESSED_MB", "200"))
     allow = os.environ.get(
@@ -76,9 +99,6 @@ def load_settings() -> Settings:
         cand = Path(__file__).resolve().parents[2] / "frontend" / "dist"
         s.frontend_dist = cand if cand.exists() else None
 
-    if not s.ai_provider:
-        # 외부 전송은 명시적으로 켠 경우에만: 키가 있어도 기본은 샘플 모드
-        s.ai_provider = "sample"
     validate(s)
     return s
 
@@ -93,9 +113,47 @@ def validate(s: Settings) -> None:
             raise ConfigError("ADMIN_PASSWORD_HASH 또는 ADMIN_PASSWORD 를 설정해야 합니다.")
         if s.admin_password and len(s.admin_password) < 10:
             raise ConfigError("ADMIN_PASSWORD 는 10자 이상이어야 합니다.")
-    if s.ai_provider == "anthropic" and not s.anthropic_api_key:
-        raise ConfigError("AI_PROVIDER=anthropic 이면 ANTHROPIC_API_KEY 가 필요합니다.")
-    if s.ai_provider == "anthropic" and not s.ai_model:
-        raise ConfigError("AI_PROVIDER=anthropic 이면 AI_MODEL 을 지정해야 합니다.")
-    if s.ai_provider not in ("sample", "anthropic", "mock"):
-        raise ConfigError(f"알 수 없는 AI_PROVIDER: {s.ai_provider}")
+    s.ai_profiles.setdefault("sample", AIProfile(name="sample", kind="sample", label="샘플 모드(규칙 기반, AI 아님)", external=False))
+    if s.ai_default not in s.ai_profiles:
+        hint = {"openai": "OPENAI_API_KEY", "anthropic": "ANTHROPIC_API_KEY", "compatible": "LLM_BASE_URL"}.get(s.ai_default, "")
+        raise ConfigError(f"AI_PROVIDER={s.ai_default} 연결이 설정되지 않았습니다." + (f" {hint} 를 설정하세요." if hint else " (openai | anthropic | compatible | sample)"))
+    prof = s.ai_profiles[s.ai_default]
+    if not prof.usable:
+        raise ConfigError(f"기본 AI 연결 '{s.ai_default}' 설정이 부족합니다: {', '.join(prof.missing)}")
+
+
+def load_ai_profiles() -> dict[str, AIProfile]:
+    """환경변수에서 AI 연결을 읽는다. 키(또는 주소)가 있는 연결만 등록한다. 모델명은 여기서만 읽는다."""
+    env = os.environ.get
+    fallback_model = env("AI_MODEL", "").strip()  # 이전 설정 호환: 기본 연결의 모델명
+    default = env("AI_PROVIDER", "").strip().lower()
+
+    def model_of(name: str, var: str) -> str:
+        return env(var, "").strip() or (fallback_model if default in ("", name) else "")
+
+    out: dict[str, AIProfile] = {}
+    if env("OPENAI_API_KEY"):
+        p = AIProfile(name="openai", kind="openai", label="OpenAI(ChatGPT)", api_key=env("OPENAI_API_KEY", ""),
+                      model=model_of("openai", "OPENAI_MODEL"), base_url=env("OPENAI_BASE_URL", "").strip().rstrip("/"))
+        if not p.model:
+            p.missing.append("OPENAI_MODEL(모델명) 미설정")
+        out["openai"] = p
+    if env("ANTHROPIC_API_KEY"):
+        p = AIProfile(name="anthropic", kind="anthropic", label="Anthropic(Claude)", api_key=env("ANTHROPIC_API_KEY", ""),
+                      model=model_of("anthropic", "ANTHROPIC_MODEL"), base_url=env("ANTHROPIC_BASE_URL", "").strip().rstrip("/"))
+        if not p.model:
+            p.missing.append("ANTHROPIC_MODEL(모델명) 미설정")
+        out["anthropic"] = p
+    if env("LLM_BASE_URL"):
+        mode = env("LLM_JSON_MODE", "json_schema").strip().lower()
+        p = AIProfile(name="compatible", kind="compatible", label=env("LLM_LABEL", "").strip() or "OpenAI 호환 LLM",
+                      api_key=env("LLM_API_KEY", ""), model=model_of("compatible", "LLM_MODEL"),
+                      base_url=env("LLM_BASE_URL", "").strip().rstrip("/"), json_mode=mode, external=_bool("LLM_EXTERNAL", True))
+        if not p.model:
+            p.missing.append("LLM_MODEL(모델명) 미설정")
+        if mode not in ("json_schema", "json_object", "prompt"):
+            p.missing.append(f"LLM_JSON_MODE 값 오류: {mode}")
+        if not p.base_url.startswith(("http://", "https://")):
+            p.missing.append("LLM_BASE_URL은 http(s) 주소여야 함")
+        out["compatible"] = p
+    return out

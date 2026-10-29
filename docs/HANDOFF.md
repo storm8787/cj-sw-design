@@ -21,7 +21,8 @@
 | H HW·SW 추천 | 완료(규칙 기반) | 공식 자료 등록·서버 조회(제목 확인)·사용자 확인 입력. 최신 버전 자동 판정은 하지 않음 |
 | 엑셀 X1~X6 | 완료 | 12시트+검산, LibreOffice 재계산 일치 확인 |
 | 품질 Q1~Q12 | 완료 | 단일 관리자 인증, CSRF, 업로드 검증, SSRF 차단, 백업·복원, 작업 재사용·중단 표시 |
-| 실제 AI(Anthropic) | **미검증** | 앱용 API 키 없음. `AI_PROVIDER=anthropic`, `ANTHROPIC_API_KEY`, `AI_MODEL` 설정 후 확인 필요 |
+| 여러 AI 연결(D-018) | 완료(가짜 전송으로 검증) | OpenAI 기본·Anthropic·OpenAI 호환 상용/사내 LLM·샘플을 동시에 설정, 프로젝트별 선택. **실제 서비스 호출은 미검증** |
+| 실제 AI 호출 | **미검증** | OpenAI: `OPENAI_API_KEY`·`OPENAI_MODEL` 설정 후 질문·요구사항·설계·FP 후보·문서 분석 각 1회 실행해 확인 필요 |
 
 ## 3. 테스트 결과 (상세: `docs/VALIDATION.md`)
 - 백엔드 pytest **89 passed**(2026-10-29), 프런트 타입검사·빌드 성공, 브라우저 E2E 통과, Docker 빌드·실행·재배포 영속성 확인.
@@ -36,7 +37,7 @@
 6. 이 작업 환경 특성: Docker Hub 429·ghcr 차단·TLS 검사 프록시 → 로컬 Docker 빌드는 mirror.gcr.io 기반 이미지 + `--secret id=extra_ca` 사용.
 
 ## 5. 다음 작업(우선순위)
-1. 실제 AI 키로 `AI_PROVIDER=anthropic` 검증: 질문·요구사항·설계·FP 후보·문서 추출 각각 1회, 결과 품질과 검증 경고 확인 → VALIDATION 기록.
+1. 실제 OpenAI 키로 검증(`OPENAI_API_KEY`·`OPENAI_MODEL`): 질문·요구사항·설계·FP 후보·문서 추출 각각 1회, 결과 품질·검증 경고 확인 → VALIDATION 기록. 사내/상용 LLM을 쓸 경우 `LLM_*`로 같은 절차.
 2. sw.or.kr 접근 가능한 환경에서 가이드 2025 개정판 확인 → 차이가 있으면 새 기준 JSON 추가(기존 파일 수정 금지, 과거 견적 보존).
 3. 실제 HWP 샘플로 추출 검증, 필요 시 변환 도구 연동 검토.
 4. 운영 배포 결정(기관 서버/클라우드, HTTPS, 백업 정책) — 사용자 결정 필요.
@@ -61,6 +62,6 @@ cd backend && APP_ENV=development AUTH_DISABLED=true uv run uvicorn app.main:cre
 
 ## 7. 외부 설정 필요사항
 - 운영: `SECRET_KEY`, `ADMIN_PASSWORD_HASH`(또는 `ADMIN_PASSWORD`), HTTPS 프록시와 `COOKIE_SECURE=true`, `/data` 볼륨 백업.
-- AI 사용 시: `AI_PROVIDER=anthropic`, `ANTHROPIC_API_KEY`, `AI_MODEL`(예: `claude-opus-5-5`). 외부 전송 동의 정책을 기관 보안 지침과 맞출 것.
+- AI 사용 시: 기본 OpenAI는 `OPENAI_API_KEY`·`OPENAI_MODEL`, 그 밖은 `.env.example`의 AI 연결 항목 참고. 각 서비스 결제 화면에서 월 지출 한도 설정. 외부 전송 동의 정책을 기관 보안 지침과 맞출 것.
 - GitHub Actions: 비공개 상태에서는 계정 결제·지출 한도 문제로 작업 시작이 거부되었음(2026-10-29). Public 전환 후 정상 실행. 다시 비공개로 바꾸면 Billing & plans의 Actions 한도를 확인해야 함.
 - 공개 저장소이므로 실제 사업 문서·DB·키·`.env`는 절대 커밋하지 않는다(.gitignore로 차단, 이력 점검 완료).

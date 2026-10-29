@@ -16,7 +16,7 @@
 - **기존 문서 검토**: 요구사항 ID 누락, FP 가중치·중복·합계, 산식·VAT·총액, 불명확 범위, 문서로 확정 불가 항목
 - **HW·SW 구성 추천**: 자체 서버 가정 기반 구성안 / 클라우드 서비스 구성(사양 미제시), 공식 출처·확인일 관리
 - **엑셀 산출물**: 12개 시트 + 검산 시트(수식 값 = Python 계산값 확인), 화면 미리보기, JSON 백업·복원
-- **AI**: 키가 없으면 **샘플 모드**(서버 규칙, AI 아님)로 전체 흐름 사용 가능. AI 결과는 '변경안'으로만 제시되어 사용자가 골라 적용
+- **AI(여러 공급자 교체 가능)**: OpenAI(ChatGPT, 기본)·Anthropic(Claude)·OpenAI 호환 상용/사내 LLM을 동시에 설정하고 프로젝트마다 선택. 키가 없으면 **샘플 모드**(서버 규칙, AI 아님)로 전체 흐름 사용 가능. AI 결과는 '변경안'으로만 제시되어 사용자가 골라 적용
 
 ## 사용 순서
 1 개요(목적·경계·금액 조건) → 2 자료·질문 → 3 요구사항 → 4 설계 → 5 FP·개발비 → 6 검토·추천 → 7 엑셀. 언제든 이전 단계로 돌아갈 수 있고 모든 변경은 즉시 저장됩니다.
@@ -75,11 +75,24 @@ docker run -d -p 8000:8000 -v swdata:/data --env-file .env --name sw-design-help
 - SSL 검사 프록시가 있는 망에서 빌드할 때: `docker build --secret id=extra_ca,src=/path/사내루트인증서.pem -t sw-design-helper .`
 
 ## 환경변수
-`.env.example` 참고. 주요 항목: `APP_ENV`, `DATA_DIR`, `SECRET_KEY`, `ADMIN_PASSWORD_HASH`/`ADMIN_PASSWORD`, `COOKIE_SECURE`, `AUTH_DISABLED`(개발 전용), `AI_PROVIDER`(sample|anthropic), `ANTHROPIC_API_KEY`, `AI_MODEL`, `MAX_UPLOAD_MB`, `OFFICIAL_SOURCE_ALLOWLIST`.
+`.env.example` 참고. 주요 항목: `APP_ENV`, `DATA_DIR`, `SECRET_KEY`, `ADMIN_PASSWORD_HASH`/`ADMIN_PASSWORD`, `COOKIE_SECURE`, `AUTH_DISABLED`(개발 전용), `MAX_UPLOAD_MB`, `OFFICIAL_SOURCE_ALLOWLIST`.
+
+### AI 연결
+| 연결 | 켜는 방법 | 비고 |
+|---|---|---|
+| OpenAI(ChatGPT) — 기본 | `OPENAI_API_KEY`, `OPENAI_MODEL` | 구조화 출력(JSON 스키마) 사용. `OPENAI_BASE_URL`로 프록시·Azure OpenAI v1 주소 지정 가능 |
+| Anthropic(Claude) | `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL` | 구조화 출력 사용 |
+| OpenAI 호환 상용·사내 LLM | `LLM_BASE_URL`, `LLM_MODEL`, (`LLM_API_KEY`, `LLM_LABEL`, `LLM_JSON_MODE`, `LLM_EXTERNAL`) | 구조화 출력 미지원 서버는 `LLM_JSON_MODE=prompt`. 기관 내부 설치면 `LLM_EXTERNAL=false` |
+| 샘플 모드 | 항상 사용 가능 | AI 아님(규칙 기반), 외부 전송 없음 |
+
+- `AI_PROVIDER`로 서버 기본 연결을 정하고, 각 프로젝트의 '개요 → AI 연결'에서 다른 연결을 고를 수 있습니다.
+- 모든 AI 응답은 공급자와 관계없이 같은 검증(JSON·스키마·없는 ID·사용자 기능 누락·과도한 응답)을 거쳐 '변경안'으로만 들어옵니다.
+- AI API는 쓴 만큼 요금이 나갑니다. 각 서비스의 결제 화면에서 월 지출 한도를 꼭 설정하세요.
+- 새 공급자를 추가하려면 `backend/app/ai/provider.py`에 `generate_json()` 하나를 구현하고 `config.load_ai_profiles()`에 설정을 추가하면 됩니다.
 
 ## 제약
 - FP·개발비 기준값은 2026 산정양식 패키지의 양식 수식에서 추출했습니다. KOSA 가이드 원문(2025 개정판)은 이 작업 환경에서 접속이 막혀 **미확인**이며, 이윤율·끝수·단계별 비율은 확인 필요로 표시됩니다(`docs/FP_RULES.md`).
-- 실제 AI 모델 호출은 검증하지 않았습니다(키 없음). HWP는 실험적 지원이며 HWPX/PDF 변환을 권장합니다. 스캔 PDF는 OCR을 하지 않습니다.
+- 실제 AI 서비스 호출은 아직 검증하지 않았습니다(어댑터는 가짜 전송 계층으로 요청·응답 형식을 시험). HWP는 실험적 지원이며 HWPX/PDF 변환을 권장합니다. 스캔 PDF는 OCR을 하지 않습니다.
 - 장비 구매비는 개발비에 포함하지 않습니다. 유료 SW·클라우드 비용은 '별도 비용'으로만 표시합니다.
 - 단일 관리자용 MVP입니다(다중 사용자·권한 분리는 후속).
 - 연간 유지관리, 장비 유지관리, ITS/BIS, RFID, 단독 DB·공간정보 구축, 컨설팅은 후속 확장 범위입니다.

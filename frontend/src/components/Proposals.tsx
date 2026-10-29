@@ -55,7 +55,7 @@ function ProposalCard({ pr, pid, onDone, run, busy }: { pr: Proposal; pid: strin
         <b>
           {pr.id} {KIND[pr.kind] || pr.kind}
         </b>{" "}
-        <Badge kind={`or-${pr.mode}`}>{ORIGIN[pr.mode] || pr.mode}</Badge> <span className="muted">{pr.summary}</span>
+        <Badge kind={`or-${pr.mode}`}>{ORIGIN[pr.mode] || pr.mode}</Badge> {pr.source && pr.mode === "ai" && <span className="small">{pr.source}</span>} <span className="muted">{pr.summary}</span>
       </div>
       <Warn items={pr.warnings} />
       <table className="grid compact">
