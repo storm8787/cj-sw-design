@@ -81,10 +81,31 @@
 ## 5-2. 여러 AI 연결(2026-10-29)
 - `backend/tests/test_ai_providers.py` 17건 통과, 전체 pytest **109 passed**, 프런트 타입검사·빌드, 브라우저 E2E(샘플 모드) 통과.
 - 확인 내용: 환경변수별 연결 등록·기본값(OpenAI 키 있으면 openai, 없으면 sample)·불완전 설정 거부, OpenAI 요청 형식(chat/completions, Bearer 키, json_schema strict, 미지원 제약 제거), 거절·잘림·빈 응답·401/404/429/500 한국어 사유, 호환 LLM prompt 모드(코드블록 속 JSON 추출, response_format 미전송)·json_object 모드, API 전체 경로(동의 없으면 거부 → 동의 후 OpenAI 어댑터 → 질문 저장·출처 표시), 프로젝트별 연결 선택·없는 연결 거부.
-- **실제 OpenAI·Anthropic·사내 LLM 서비스 호출은 미검증**: 가짜 HTTP 전송 계층(MockTransport)으로만 시험.
+- 이 시점에는 실제 서비스 호출 없이 가짜 HTTP 전송 계층(MockTransport)으로만 시험(실제 OpenAI 호출은 §5-3).
+
+## 5-3. 실제 OpenAI 호출 검증(2026-10-29)
+- 조건: 사용자 본인 `OPENAI_API_KEY`, `OPENAI_MODEL=gpt-6.1-sol`, 개발 모드 서버(8000)에 API로 가상 사업("직원 교육 신청·관리", 가상 과업지시서 txt) 1건을 만들어 다섯 작업을 차례로 실행. 실제 사업 데이터는 쓰지 않았다.
+- 실행 중 발견·수정(회귀 테스트 추가, 수정 전 실패·수정 후 통과 확인):
+  1. 스키마 정리 함수가 `title`이라는 **필드**를 JSON Schema 키워드로 보고 지워 OpenAI가 400("Extra required key 'title'") → `properties`·`$defs` 아래 이름은 지우지 않도록 수정(`test_strict_schema_keeps_fields_named_like_keywords`).
+  2. 설계 응답이 출력 8000토큰에서 잘림(finish=length) → 기본 `AI_MAX_OUTPUT_TOKENS` 32000.
+  3. 120초 시간 초과 + SDK 자동 재시도 2회로 339초 뒤 "연결할 수 없습니다"로 잘못 안내 → 시간 초과를 별도 사유로 안내, 기본 `AI_TIMEOUT_SEC` 600, SDK 재시도 1회(`test_timeout_reported_as_timeout_not_connection`).
+  4. AI 모드 문서 추출 위치가 구간 범위("1줄 ~ 8줄")로만 기록 → 추출 문장이 들어 있는 원문 줄 위치로 기록(`test_ai_doc_hallucination_dropped_and_consent`에 위치 검사 추가).
+- 수정 후 결과(모두 성공, 검증 경고 없음):
+
+| 작업 | 소요 | 결과 |
+|---|---|---|
+| 질문 | 46초 | 5문항, 목적에 맞는 선택지·추천값 |
+| 요구사항 | 52초 | 17건. 사용자가 적은 기능 6개 모두 출처 '사용자'로 보존, AI 추가분은 "[제안]" 표시 |
+| 설계 | 126초(출력 약 9,500토큰) | 기능 16·데이터 7·연계 3·화면 8·업무흐름 9, 불명확한 점은 "확인 필요"로 남김 |
+| FP 후보 | 48초 | 27건. 확신 없는 항목은 유형 비움, DET·FTR을 지어내지 않음(모두 '초안') |
+| 문서 추출 | 8초 | 8건. 예산·기간·특정 제품·개인정보 조건을 기관 특수 조건으로 표시, 문서 속 "삭제하라" 문장은 분석 대상 데이터로만 취급 |
+
+- 비용: 공개 요금표를 확인하지 못해 추정만 함(약 0.4~0.7달러, 시간 초과로 실패한 3회도 과금됐을 수 있음). 실제 금액은 OpenAI 사용량 화면에서 확인.
+- 수정 후 전체 pytest **115 passed**.
+- 미검증: Anthropic·사내/상용 호환 LLM 실제 호출, 다른 OpenAI 모델, 대용량(여러 구간) 문서의 실제 AI 추출.
 
 ## 6. 미검증 / 한계
-- 실제 AI 모델 호출(키 없음). 어댑터는 mock으로 검증 경로만 시험.
+- 실제 AI 호출은 OpenAI(gpt-6.1-sol) 1개 사업으로만 확인(§5-3). Anthropic·호환 LLM은 mock 전송 계층으로만 시험.
 - 실제 HWP 파일(샘플 없음) — 레코드 파서 단위 시험만. '실험적' 표시 유지.
 - 실제 기관 문서·실데이터 검증 없음(가상 문서만).
 - sw.or.kr 가이드 원문 대조(네트워크 차단) — FP_RULES §8.

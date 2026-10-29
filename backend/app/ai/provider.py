@@ -78,6 +78,8 @@ class MockProvider(AIProvider):
 
 def _map_sdk_error(sdk, e: Exception, label: str, model: str) -> AIError:
     """openai·anthropic SDK는 같은 이름의 예외 계층을 쓴다."""
+    if isinstance(e, sdk.APITimeoutError):
+        return AIError(f"{label} 응답 시간 초과: 결과가 길어 시간이 오래 걸립니다. AI_TIMEOUT_SEC를 늘리거나 범위를 나눠 다시 시도하세요.")
     if isinstance(e, sdk.AuthenticationError):
         return AIError(f"{label} 인증 실패: API 키를 확인하세요.")
     if isinstance(e, sdk.NotFoundError):
@@ -110,7 +112,7 @@ class OpenAIProvider(AIProvider):
         self.model = profile.model
         self.external = profile.external
         self.max_tokens = settings.ai_max_output_tokens
-        kwargs: dict[str, Any] = {"api_key": profile.api_key or "not-needed", "timeout": settings.ai_timeout_sec, "max_retries": 2}
+        kwargs: dict[str, Any] = {"api_key": profile.api_key or "not-needed", "timeout": settings.ai_timeout_sec, "max_retries": 1}
         if profile.base_url:
             kwargs["base_url"] = profile.base_url
         if http_client is not None:
@@ -175,7 +177,7 @@ class AnthropicProvider(AIProvider):
         self.label = profile.label
         self.model = profile.model
         self.max_tokens = settings.ai_max_output_tokens
-        kwargs: dict[str, Any] = {"api_key": profile.api_key, "timeout": settings.ai_timeout_sec, "max_retries": 2}
+        kwargs: dict[str, Any] = {"api_key": profile.api_key, "timeout": settings.ai_timeout_sec, "max_retries": 1}
         if profile.base_url:
             kwargs["base_url"] = profile.base_url
         self.client = anthropic.Anthropic(**kwargs)
@@ -264,8 +266,13 @@ def strict_schema(model_cls) -> dict[str, Any]:
                 node["required"] = list(node["properties"].keys())
             for k in ("title", "default", *_UNSUPPORTED_KEYS):
                 node.pop(k, None)
-            for v in node.values():
-                fix(v)
+            for k, v in node.items():
+                if k in ("properties", "$defs"):
+                    # 이름→스키마 사전: 키(필드명 'title' 등)는 지우지 않고 각 스키마만 정리
+                    for sub in v.values():
+                        fix(sub)
+                else:
+                    fix(v)
         elif isinstance(node, list):
             for v in node:
                 fix(v)

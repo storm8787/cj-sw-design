@@ -52,8 +52,8 @@ class Settings:
     # AI: 여러 연결(profile)을 동시에 설정, 기본 연결은 ai_default
     ai_default: str = "sample"
     ai_profiles: dict[str, AIProfile] = field(default_factory=dict)
-    ai_timeout_sec: float = 120.0
-    ai_max_output_tokens: int = 8000
+    ai_timeout_sec: float = 600.0  # 긴 설계 초안은 수 분 걸릴 수 있음(2026-10-29 실측 100초 이상)
+    ai_max_output_tokens: int = 32000  # 상한일 뿐 실제 사용량만 과금. 설계 초안 JSON이 8천 토큰을 넘는 경우 확인(2026-10-29)
     # 업로드
     max_upload_mb: int = 30
     max_uncompressed_mb: int = 200
@@ -75,8 +75,8 @@ def load_settings() -> Settings:
     s.admin_password = os.environ.get("ADMIN_PASSWORD", "")
     s.auth_disabled = _bool("AUTH_DISABLED", False)
     s.cookie_secure = _bool("COOKIE_SECURE", False)
-    s.ai_timeout_sec = float(os.environ.get("AI_TIMEOUT_SEC", "120"))
-    s.ai_max_output_tokens = int(os.environ.get("AI_MAX_OUTPUT_TOKENS", "8000"))
+    s.ai_timeout_sec = float(os.environ.get("AI_TIMEOUT_SEC", "600"))
+    s.ai_max_output_tokens = int(os.environ.get("AI_MAX_OUTPUT_TOKENS", "32000"))
     s.ai_profiles = load_ai_profiles()
     default = os.environ.get("AI_PROVIDER", "").strip().lower()
     if not default:

@@ -196,3 +196,35 @@ def test_per_project_profile_selection(app_factory):
     c.patch(f"/api/projects/{pid}", json={"ai_profile": ""})  # 서버 기본(mock)으로 복귀
     j = c.post(f"/api/projects/{pid}/ai/questions", json={}).json()["job"]
     assert j["result"]["mode"] == "ai" and len(mock.calls) == 1
+
+
+def _objects(node):
+    if isinstance(node, dict):
+        if node.get("type") == "object" and "properties" in node:
+            yield node
+        for v in node.values():
+            yield from _objects(v)
+    elif isinstance(node, list):
+        for v in node:
+            yield from _objects(v)
+
+
+@pytest.mark.parametrize("model_cls", [S.QuestionsOut, S.RequirementsOut, S.DesignOut, S.FPOut, S.RefOut])
+def test_strict_schema_keeps_fields_named_like_keywords(model_cls):
+    """실제 OpenAI 호출에서 발견(2026-10-29): 'title' 필드가 스키마 정리 중 지워져 400 오류가 났다."""
+    schema = strict_schema(model_cls)
+    objs = list(_objects(schema))
+    assert objs
+    for o in objs:
+        assert set(o["required"]) == set(o["properties"]) and o["additionalProperties"] is False
+    assert "title" in strict_schema(S.RequirementsOut)["$defs"]["ReqDraft"]["properties"]
+
+
+def test_timeout_reported_as_timeout_not_connection():
+    def h(req):
+        raise httpx2.ReadTimeout("slow", request=req)
+
+    p = make(OpenAIProvider, h)
+    p.client = p.client.with_options(max_retries=0)
+    with pytest.raises(AIError, match="시간 초과"):
+        p.generate_json("t", "s", "u", {})

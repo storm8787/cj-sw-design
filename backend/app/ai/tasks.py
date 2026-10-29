@@ -304,10 +304,18 @@ def task_doc_analysis(app, ctx: JobContext, params: dict[str, Any]) -> dict[str,
             out, _ = call_ai(prov, "doc_extract", user, S.RefOut)
             chunk_norm = norm(ch["text"])
             for it in out.items:
-                if norm(it.text)[:40] not in chunk_norm:
+                key = norm(it.text)[:40]
+                if key not in chunk_norm:
                     warnings.append(f"{ch['location']}: 원문에서 찾을 수 없는 추출 항목 제외(허위 가능) — {it.text[:40]}")
                     continue
-                found.append((it.kind, it.text, ch["location"], list(it.org_specific)))
+                # 구간 범위 대신 해당 원문 줄의 위치를 기록(못 찾으면 구간 범위)
+                loc = ch["location"]
+                for ln in lines:
+                    m = re.match(r"^\[(.+?)\]\s?(.*)$", ln)
+                    if m and key in norm(m.group(2)):
+                        loc = m.group(1)
+                        break
+                found.append((it.kind, it.text, loc, list(it.org_specific)))
         else:
             for ln in lines:
                 loc = ch["location"]
