@@ -198,7 +198,7 @@ class Extraction(M):
 class DocumentMeta(M):
     id: str = ""
     file_name: str = ""
-    stored_name: str = ""
+    stored_name: str = Field("", pattern=r"^(DOC-\d{3,}\.(pdf|hwpx|hwp|docx|xlsx|xlsm|txt|md))?$")  # 서버가 만든 이름만 허용(복원 파일 경로 조작 방지)
     kind: Literal["reference", "vendor_task", "vendor_design", "vendor_fp", "vendor_cost", "other"] = "reference"
     format: str = ""
     size: int = 0
