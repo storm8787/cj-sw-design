@@ -66,11 +66,12 @@ cd backend && APP_ENV=development AUTH_DISABLED=true uv run uvicorn app.main:cre
 cd frontend && npm ci && npm run typecheck && npm run build
 cd frontend && npm run dev                  # http://localhost:5173 (API는 8000으로 프록시)
 # E2E (서버 실행 후)
-node e2e/flow.mjs
+E2E_PASSWORD=<관리자 비밀번호> node e2e/flow.cjs   # 서버는 운영 모드(인증)로 실행
 # Docker 단일 서버
 docker build -t sw-design-helper . && docker run -p 8000:8000 -v swdata:/data --env-file .env sw-design-helper
 ```
-- 각 명령의 검증 여부와 날짜는 `docs/VALIDATION.md`에 기록한다. 기록 없는 명령은 '검증 전'으로 본다.
+- 위 명령은 2026-10-29 모두 실제 실행해 확인했다(개발 서버는 화면 200·API 프록시 응답까지). 결과는 `docs/VALIDATION.md`.
+- 새 명령은 실행해 VALIDATION에 기록하기 전까지 '검증 전'으로 본다.
 
 ## 10. Git에 올리지 않는 것
 - API 키, `.env`, 업로드 원문, 실제 사업 데이터, SQLite DB, 생성된 엑셀, 로그, `DATA_DIR` 전체.
