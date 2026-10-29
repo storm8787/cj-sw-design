@@ -199,11 +199,15 @@ def requirements(p: Project, feature_text: str) -> S.RequirementsOut:
 VERBS = r"(등록|수정|삭제|조회|관리|신청|취소|승인|반려|처리|통계|현황|목록|검색|출력|전송|배정|재배정|계산|집계|보고|알림|발송|입력|변경|확인|실행|자동|승계|연계|참조|내역|발급|파기|업로드|내려받기|화면|기능|및|·|,)"
 
 
+# 업무 대상이기도 한 동사형 명사(신청 정보, 접수 정보 등)는 남긴다
+_ACTION_WORDS = set(VERBS.strip("()").split("|")) - {"신청", "접수", "·", ","}
+
+
 def base_noun(title: str) -> str:
-    s = re.sub(VERBS, " ", title)
-    s = re.sub(r"[()\[\]/]", " ", s)
-    s = re.sub(r"\s+", " ", s).strip()
-    return s or title.strip()
+    """요구사항·기능명에서 업무 대상 명사를 뽑는다. 예: '신청 승인·반려' → '신청', '교육과정 등록·관리' → '교육과정'."""
+    words = [w for w in re.split(r"[\s·,/()\[\]:]+", title) if w]
+    kept = [w for w in words if w not in _ACTION_WORDS and not any(w.endswith(v) and len(w) > len(v) + 1 and v in ("등록", "조회", "관리", "처리") for v in _ACTION_WORDS)]
+    return " ".join(kept) or (words[0] if words else title.strip())
 
 
 def actor_of(text: str) -> str:
@@ -282,13 +286,18 @@ def fp_candidates(p: Project) -> S.FPOut:
         if not hits:
             add(S.FPDraft(name=f.name, fp_type=None, rationale="", uncertainty="처리 유형을 판단할 표현이 없어 미분류 — 입력/조회/출력 중 무엇인지 확인 필요", det=None, ftr_ret=None, requirement_ids=f.requirement_ids, function_ids=[f.id], data_ids=f.data_ids))
             continue
-        seen_t = set()
+        # 기능명에 명시된 등록·수정·삭제·승인·반려는 각각 별도 처리로, 그 밖에는 유형별 1건으로 만든다
+        crud = [v for v in ("등록", "수정", "삭제", "승인", "반려") if v in f.name]
+        if len(crud) > 1:
+            for v in crud:
+                add(S.FPDraft(name=f"{base_noun(f.name)} {v}", fp_type="EI", rationale=f"기능명의 '{v}' → 내부 데이터를 바꾸는 별도 처리", uncertainty="DET·FTR 미입력(정통법 전 확인 필요)", det=None, ftr_ret=None, requirement_ids=f.requirement_ids, function_ids=[f.id], data_ids=f.data_ids))
+            continue
+        by_type: dict[str, tuple[str, str]] = {}
         for w, t, why in hits:
-            if (w, t) in seen_t:
-                continue
-            seen_t.add((w, t))
-            name = f.name if len(hits) == 1 else f"{base_noun(f.name)} {w}"
-            add(S.FPDraft(name=name, fp_type=t, rationale=f"'{w}' 표현 → {why}", uncertainty="DET·FTR 미입력(정통법 전 확인 필요)", det=None, ftr_ret=None, requirement_ids=f.requirement_ids, function_ids=[f.id], data_ids=f.data_ids))
+            by_type.setdefault(t, (w, why))
+        for t, (w, why) in by_type.items():
+            name = f.name if len(by_type) == 1 else f"{f.name}({ {'EI': '입력', 'EO': '출력', 'EQ': '조회'}[t]})"
+            add(S.FPDraft(name=name, fp_type=t, rationale=f"'{w}' 표현 → {why}", uncertainty="DET·FTR 미입력(정통법 전 확인 필요)" + (" / 한 기능에 여러 유형 표현 — 실제 처리 단위 확인" if len(by_type) > 1 else ""), det=None, ftr_ret=None, requirement_ids=f.requirement_ids, function_ids=[f.id], data_ids=f.data_ids))
     return S.FPOut(items=out)
 
 

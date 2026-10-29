@@ -1,0 +1,16 @@
+.git
+**/node_modules
+**/.venv
+**/__pycache__
+**/.pytest_cache
+frontend/dist
+data
+e2e/output
+.env
+.env.*
+*.xlsx
+*.xlsm
+*.hwp
+*.hwpx
+*.pdf
+*.docx
