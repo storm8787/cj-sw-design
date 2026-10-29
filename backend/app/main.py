@@ -8,14 +8,14 @@ from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, JSONResponse
 
 from .ai import tasks as ai_tasks
-from .ai.provider import AIProvider, build_provider
+from .ai.provider import AIProvider, ProviderRegistry
 from .auth import COOKIE, CSRF_HEADER, CSRF_VALUE, Auth
 from .config import Settings, load_settings
 from .db import Database
 from .docs_extract.extract import UploadRejected
 from .fp.cost import CostError
 from .fp.standards import StandardError, StandardRegistry
-from .jobs import JobRunner
+from .jobs import JobRunner, UserFacingError
 from .store import Conflict, InvalidData, NotFound, ProjectStore
 from .tech.fetch import FetchBlocked
 
@@ -31,7 +31,7 @@ class AppCtx:
         self.db = Database(settings.data_dir / "app.db")
         self.store = ProjectStore(self.db, settings.data_dir)
         self.registry = StandardRegistry(settings.data_dir / "standards")
-        self.provider = provider or build_provider(settings)
+        self.ai = ProviderRegistry(settings, override=provider)
         self.auth = Auth(settings.secret_key, settings.admin_password_hash, settings.admin_password, settings.session_max_age, settings.auth_disabled)
         self.jobs = JobRunner(self.db, synchronous=synchronous_jobs)
         for kind, fn in (
@@ -42,6 +42,20 @@ class AppCtx:
             ("doc_analysis", ai_tasks.task_doc_analysis),
         ):
             self.jobs.register(kind, lambda ctx, params, fn=fn: fn(self, ctx, params))
+
+    def provider_for(self, project) -> AIProvider:
+        """프로젝트가 고른 AI 연결(없거나 사라졌으면 서버 기본 연결)."""
+        return self.ai.for_name(getattr(project, "ai_profile", ""))[0]
+
+    def provider_for_job(self, project, params) -> AIProvider:
+        """작업을 제출할 때 정한 AI 연결(전송 동의도 이 연결 기준). 대기·재시도 중 프로젝트 연결이 바뀌어도 따르지 않고,
+        그 연결이 사라졌으면 다른 연결로 몰래 바꾸지 않고 실패한다."""
+        name = params.get("profile")
+        if not name:
+            return self.provider_for(project)
+        if name not in self.ai.providers:
+            raise UserFacingError(f"작업을 요청한 AI 연결 '{name}'을 지금 쓸 수 없습니다. 다른 연결로 바꾸지 않았습니다. 화면에서 다시 요청하세요.")
+        return self.ai.providers[name]
 
 
 PUBLIC = {"/api/health", "/api/auth/login", "/api/auth/me"}

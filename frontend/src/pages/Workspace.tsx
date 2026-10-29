@@ -70,6 +70,9 @@ export default function Workspace({ pid, step, system }: { pid: string; step: st
         <div className="ws-head">
           <h2>{data.project.name}</h2>
           <div className="chips">
+            <span className={`chip ${data.ai.is_real_ai ? "" : "chip-warn"}`} title={data.ai.note || (data.ai.external ? "외부 AI 서비스로 전송(요청마다 동의)" : "외부 전송 없음")}>
+              AI: {data.ai.display}
+            </span>
             <span className="chip">FP 간이 {st.fp_total.simple} / 정통 {st.fp_total.detailed}{st.fp_total.detailed_complete ? "" : "(미완)"}</span>
             <span className="chip">미확정 요구 {st.counts.requirements_unconfirmed}</span>
             <span className="chip">미확정 FP {st.counts.fp_unconfirmed}</span>

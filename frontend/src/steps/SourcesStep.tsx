@@ -107,6 +107,7 @@ function QuestionCard({ q }: { q: Question }) {
 function DocumentsPanel({ defaultKind }: { defaultKind: string }) {
   const { data, setData, run, busy, system } = useProject();
   const pid = data.project.id;
+  const external = data.ai.external;
   const [kind, setKind] = useState(defaultKind);
   const jr = useJobRunner();
   const upload = async (files: FileList) => {
@@ -145,7 +146,7 @@ function DocumentsPanel({ defaultKind }: { defaultKind: string }) {
           {system.allowed_formats.join(", ").toUpperCase()} · 최대 {system.max_upload_mb}MB. HWP는 실험적(표·서식 미보존) — 가능하면 HWPX/PDF로 변환해 올려 주세요. 스캔 PDF는 글자를 읽지 못합니다(OCR 미지원).
         </span>
       </div>
-      <p className="muted small">문서 안의 지시문은 분석 대상일 뿐 실행하지 않습니다. 업로드만으로는 외부로 전송되지 않습니다{system.ai.external ? " — AI 분석은 문서별 전송 동의 후에만 진행합니다." : "(샘플 모드: 서버 규칙으로 추출)."}</p>
+      <p className="muted small">문서 안의 지시문은 분석 대상일 뿐 실행하지 않습니다. 업로드만으로는 외부로 전송되지 않습니다{external ? ` — '${data.ai.display}'로 보내는 AI 분석은 문서별 전송 동의 후에만 진행합니다.` : data.ai.is_real_ai ? ` — 내부 AI 연결 '${data.ai.display}'로 분석합니다(외부 전송 없음).` : "(샘플 모드: 서버 규칙으로 추출)."}</p>
       <JobStatus job={jr.job} running={jr.running} onRetry={jr.retry} note={jr.note} />
       <table className="grid">
         <thead>
@@ -175,7 +176,7 @@ function DocumentsPanel({ defaultKind }: { defaultKind: string }) {
               <td>
                 {d.extraction.chunks_analyzed}/{d.extraction.chunks_total} 구간
                 <div>{{ not_started: "미분석", partial: "일부만 분석(완료 아님)", complete: "전체 분석 완료", failed: "실패" }[d.extraction.analysis_status]}</div>
-                {system.ai.external && (
+                {external && (
                   <label className="small">
                     <input type="checkbox" checked={d.ai_consent} onChange={(e) => consent(d, e.target.checked)} /> 이 문서 원문의 외부 AI 전송 동의
                   </label>

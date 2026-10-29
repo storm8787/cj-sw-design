@@ -118,6 +118,7 @@ export interface Proposal {
   kind: string;
   created_at: string;
   mode: string;
+  source: string;
   status: "pending" | "partial" | "applied" | "rejected";
   summary: string;
   warnings: string[];
@@ -271,6 +272,7 @@ export interface Project {
   name: string;
   updated_at: string;
   overview: Overview;
+  ai_profile: string;
   requirements: Requirement[];
   workflows: Row[];
   functions: Row[];
@@ -306,6 +308,7 @@ export interface ProjectResponse {
   project: Project;
   version: number;
   status: ProjectStatus;
+  ai: AIConnection;
 }
 
 export interface Job {
@@ -319,8 +322,24 @@ export interface Job {
   created_at: string;
 }
 
+export interface AIConnection {
+  name: string;
+  kind: string;
+  label: string;
+  model: string;
+  external: boolean;
+  is_real_ai: boolean;
+  display: string;
+  usable: boolean;
+  missing: string[];
+  default?: boolean;
+  note?: string;
+}
+
 export interface SystemInfo {
-  ai: { provider: string; external: boolean; is_real_ai: boolean; model: string };
+  ai: AIConnection;
+  ai_profiles: AIConnection[];
+  default_profile: string;
   mode_label: string;
   app_env: string;
   auth_disabled: boolean;

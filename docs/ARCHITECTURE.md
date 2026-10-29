@@ -91,9 +91,27 @@ Dockerfile, .dockerignore     단일 서버 이미지(화면+API, /data 볼륨)
 
 ## 5. AI 연결
 
-- `AI_PROVIDER=sample`(기본): 외부 전송 없음. 결과에 '샘플 규칙(AI 아님)' 표시.
-- `AI_PROVIDER=anthropic`: 공식 `anthropic` SDK, `messages.create` + `output_config.format`(JSON 스키마). 모델명은 `AI_MODEL` 환경변수 한 곳.
-  거절(`refusal`)·잘림(`max_tokens`)·인증·한도 오류를 한국어 사유로 바꿔 작업 실패로 기록.
+여러 AI 연결을 동시에 두고 바꿔 끼우는 구조(DECISIONS D-018).
+
+```
+환경변수 ─ config.load_ai_profiles() ─ AIProfile(openai / anthropic / compatible / sample)
+                                          │
+                       ai/provider.py ProviderRegistry ─ 프로젝트.ai_profile(비우면 AI_PROVIDER 기본)
+                                          │ generate_json(task, system, user, schema) → JSON 문자열
+                       ai/tasks.py  call_ai(): 스키마·업무 검증, 1회 재시도 → 변경안(Proposal.source 기록)
+```
+
+| 연결 | 구현 | 구조화 출력 | 외부 전송 |
+|---|---|---|---|
+| `openai`(기본) | `openai` 공식 SDK, Chat Completions | `response_format` json_schema strict | 예(요청마다 동의) |
+| `anthropic` | `anthropic` 공식 SDK, Messages | `output_config.format` json_schema | 예 |
+| `compatible` | `openai` SDK + `LLM_BASE_URL`(Azure OpenAI v1, vLLM, Ollama, 국내 LLM 등) | `LLM_JSON_MODE`: json_schema / json_object / prompt(스키마를 지시문에 넣고 JSON만 추출) | `LLM_EXTERNAL`(내부 설치면 false) |
+| `sample` | 규칙 엔진(ai/sample.py) | — | 아니오 |
+
+- 공급자별 지원이 다른 스키마 제약(maxItems 등)은 보내는 스키마에서 제거하고 응답을 Pydantic으로 다시 검증.
+- 거절·잘림·콘텐츠 필터·인증·모델 없음·한도·연결 오류를 연결 이름이 붙은 한국어 사유로 바꿔 작업 실패로 기록(데이터는 그대로).
+- 같은 입력이라도 AI 연결이 다르면 다른 작업으로 취급(중복 실행 재사용 키에 연결 이름 포함).
+- 새 공급자 추가: `AIProvider` 하위 클래스에 `generate_json()` 구현 + `load_ai_profiles()`에 설정 추가.
 - 모든 응답은 Pydantic 재검증 + 업무 검증(없는 ID 제거, 사용자 기능 누락 복원, 과도한 질문 절단, 원문에 없는 추출 항목 제거). 치명 오류면 오류 내용을 붙여 1회 재시도.
 - 외부 AI 모드에서는 요청마다 전송 범위 미리보기 + 동의(`consent`) 필요, 문서 원문은 문서별 동의 필요.
 

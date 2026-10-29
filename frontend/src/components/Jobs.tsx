@@ -5,14 +5,14 @@ import { useProject } from "./ui";
 
 /** 긴 작업 실행: 진행 표시·실패 이유·재시도. 같은 입력이면 서버가 기존 작업을 재사용(중복 비용 방지). */
 export function useJobRunner() {
-  const { data, reload, system } = useProject();
+  const { data, reload } = useProject();
   const [job, setJob] = useState<Job | null>(null);
   const [running, setRunning] = useState(false);
   const [note, setNote] = useState("");
 
   const start = async (url: string, body: Record<string, unknown> = {}) => {
     if (running) return null;
-    if (system.ai.external) {
+    if (data.ai.external) {
       const preview = await api.get<{ explanation: string }>(`${P(data.project.id)}/ai/transmission-preview`);
       if (!confirm(`${preview.explanation}\n\n전송에 동의하고 진행할까요?`)) return null;
       body = { ...body, consent: true };
@@ -59,7 +59,7 @@ export function JobStatus({ job, running, onRetry, note }: { job: Job | null; ru
         <>
           <b>{{ queued: "대기", running: "진행 중", succeeded: "완료", failed: "실패", interrupted: "중단됨" }[job.status]}</b>{" "}
           {running && <progress value={job.progress} max={1} />} {job.message}
-          {job.result?.mode ? <span className="muted"> · {job.result.mode === "ai" ? "AI 결과" : "샘플 규칙 결과(AI 아님)"}</span> : null}
+          {job.result?.mode ? <span className="muted"> · {job.result.mode === "ai" ? `AI 결과(${String(job.result.source || "")})` : "샘플 규칙 결과(AI 아님)"}</span> : null}
           {job.error && <div className="error">이유: {job.error} — 기존 데이터는 바뀌지 않았습니다.</div>}
           {(job.status === "failed" || job.status === "interrupted") && job.id !== "-" && (
             <button onClick={onRetry} disabled={running}>

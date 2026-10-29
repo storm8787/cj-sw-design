@@ -34,13 +34,18 @@ def actor(c: AppCtx) -> str:
     return "user"
 
 
+def mode_label(prov) -> str:
+    return f"AI 모드 — {prov.display()}" if prov.is_real_ai else "샘플 모드(규칙 기반, AI 아님)"
+
+
 def std_of(c: AppCtx, p) -> dict[str, Any]:
     return c.registry.get(p.cost_settings.standard_id)
 
 
 def ok_project(c: AppCtx, pid: str, version: int | None = None) -> dict[str, Any]:
     p, v = c.store.get(pid)
-    return {"project": json.loads(p.model_dump_json()), "version": v, "status": status.project_status(p, std_of(c, p))}
+    prov, note = c.ai.for_name(p.ai_profile)
+    return {"project": json.loads(p.model_dump_json()), "version": v, "status": status.project_status(p, std_of(c, p)), "ai": prov.describe() | {"note": note}}
 
 
 # ---------------------------------------------------------------- 인증·시스템
@@ -81,8 +86,10 @@ def me(request: Request):
 def system(request: Request):
     c = C(request)
     return {
-        "ai": c.provider.describe(),
-        "mode_label": "AI 모드" if c.provider.is_real_ai else "샘플 모드(규칙 기반, AI 아님)",
+        "ai": c.ai.default_provider.describe(),
+        "mode_label": mode_label(c.ai.default_provider),
+        "ai_profiles": c.ai.describe(),
+        "default_profile": c.ai.default,
         "app_env": c.settings.app_env,
         "auth_disabled": c.auth.disabled,
         "max_upload_mb": c.settings.max_upload_mb,
@@ -142,6 +149,7 @@ def get_project(pid: str, request: Request):
 class ProjectPatch(BaseModel):
     name: str | None = Field(None, min_length=1, max_length=200)
     overview: dict[str, Any] | None = None
+    ai_profile: str | None = Field(None, max_length=40)
     version: int | None = None
 
 
@@ -153,6 +161,11 @@ def patch_project(pid: str, body: ProjectPatch, request: Request):
         if body.name is not None and body.name != p.name:
             m.log("project", pid, "rename", {"name": p.name}, {"name": body.name})
             p.name = body.name.strip()
+        if body.ai_profile is not None and body.ai_profile != p.ai_profile:
+            if body.ai_profile and body.ai_profile not in c.ai.providers:
+                raise InvalidData(f"서버에 설정되지 않은 AI 연결입니다: {body.ai_profile}")
+            m.log("project", pid, "ai_profile", {"ai_profile": p.ai_profile}, {"ai_profile": body.ai_profile})
+            p.ai_profile = body.ai_profile
         if body.overview is not None:
             before = p.overview.model_dump()
             new = Overview.model_validate({**before, **body.overview})
@@ -282,7 +295,7 @@ class EstIn(BaseModel):
 @router.post("/projects/{pid}/estimates")
 def create_estimate(pid: str, body: EstIn, request: Request):
     c = C(request)
-    _, _, e = c.store.mutate(pid, actor(c), lambda p, m: est.create_estimate(p, m, std_of(c, p), body.label, "ai" if c.provider.is_real_ai else "sample"))
+    _, _, e = c.store.mutate(pid, actor(c), lambda p, m: est.create_estimate(p, m, std_of(c, p), body.label, "ai" if c.provider_for(p).is_real_ai else "sample"))
     return {"estimate": e.model_dump(), **ok_project(c, pid)}
 
 
@@ -359,11 +372,12 @@ def transmission_preview(pid: str, request: Request):
 
     c = C(request)
     p, _ = c.store.get(pid)
+    prov = c.provider_for(p)
     return {
-        "external": c.provider.external,
-        "provider": c.provider.describe(),
-        "explanation": ("AI 모드에서는 아래 프로젝트 요약(사업 개요·요구사항·질문 답변·기능·데이터·연계 목록)이 외부 AI 서비스로 전송됩니다. 첨부 원문은 문서별로 따로 동의해야 전송됩니다."
-                        if c.provider.external else "샘플 모드: 외부로 전송되는 데이터가 없습니다(서버 안의 규칙으로 처리)."),
+        "external": prov.external,
+        "provider": prov.describe(),
+        "explanation": (f"아래 프로젝트 요약(사업 개요·요구사항·질문 답변·기능·데이터·연계 목록)이 외부 AI 서비스 '{prov.display()}'로 전송됩니다. 첨부 원문은 문서별로 따로 동의해야 전송됩니다."
+                        if prov.external else (f"'{prov.display()}'는 기관 내부(외부 전송 없음)로 설정된 연결입니다." if prov.is_real_ai else "샘플 모드: 외부로 전송되는 데이터가 없습니다(서버 안의 규칙으로 처리).")),
         "payload": project_brief(p),
     }
 
@@ -373,10 +387,12 @@ def run_ai(pid: str, task: str, body: AIIn, request: Request):
     c = C(request)
     if task not in AI_TASKS:
         raise NotFound("알 수 없는 작업")
-    if c.provider.external and not body.consent:
-        raise InvalidData("외부 AI 전송 동의가 필요합니다. 전송 범위를 확인한 뒤 동의하세요.")
     p, v = c.store.get(pid)
+    prov = c.provider_for(p)
+    if prov.external and not body.consent:
+        raise InvalidData("외부 AI 전송 동의가 필요합니다. 전송 범위를 확인한 뒤 동의하세요.")
     params = {"feature_text": body.feature_text} if task == "requirements" else {}
+    params["profile"] = prov.name  # 같은 입력이라도 AI 연결이 다르면 다른 작업
     data_hash = hashlib.sha256(p.model_dump_json(exclude={"proposals", "updated_at"}).encode()).hexdigest()[:16]
     job, started = c.jobs.submit(task, pid, params, data_hash, force=body.force)
     return {"job": job, "started": started, "reused": not started}
@@ -413,7 +429,7 @@ class AnswerIn(BaseModel):
 @router.post("/projects/{pid}/questions/{qid}/answer")
 def answer(pid: str, qid: str, body: AnswerIn, request: Request):
     c = C(request)
-    _, _, r = c.store.mutate(pid, actor(c), lambda p, m: proposals.answer_question(p, m, qid, body.kind, body.value, "ai" if c.provider.is_real_ai else "sample"))
+    _, _, r = c.store.mutate(pid, actor(c), lambda p, m: proposals.answer_question(p, m, qid, body.kind, body.value, "ai" if c.provider_for(p).is_real_ai else "sample"))
     return {"result": r, **ok_project(c, pid)}
 
 
@@ -536,7 +552,7 @@ def analyze_doc(pid: str, did: str, body: AnalyzeIn, request: Request):
     p, _ = c.store.get(pid)
     d = _doc(p, did)
     left = c.db.one("SELECT COUNT(*) AS n FROM doc_chunks WHERE project_id=? AND document_id=? AND analyzed=0", (pid, did))["n"]
-    job, started = c.jobs.submit("doc_analysis", pid, {"document_id": did}, f"{d.sha256}:{left}", force=body.force)
+    job, started = c.jobs.submit("doc_analysis", pid, {"document_id": did, "profile": c.provider_for(p).name}, f"{d.sha256}:{left}", force=body.force)
     return {"job": job, "started": started, "reused": not started}
 
 
@@ -689,7 +705,7 @@ def _workbook(c: AppCtx, pid: str, estimate_id: str | None):
     p, _ = c.store.get(pid)
     if estimate_id and not any(e.id == estimate_id for e in p.estimates):
         raise NotFound("견적 버전 없음")
-    return xl.build_workbook(p, std_of(c, p), c.store.changes(pid, 1000), "AI 모드" if c.provider.is_real_ai else "샘플 모드(규칙 기반, AI 아님)", estimate_id), p
+    return xl.build_workbook(p, std_of(c, p), c.store.changes(pid, 1000), mode_label(c.provider_for(p)), estimate_id), p
 
 
 @router.get("/projects/{pid}/export.xlsx")

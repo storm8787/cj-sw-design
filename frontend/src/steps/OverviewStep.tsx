@@ -12,16 +12,18 @@ const PHASES: [keyof Overview["phases"], string][] = [
 ];
 
 export default function OverviewStep() {
-  const { data, setData, run, busy } = useProject();
+  const { data, setData, run, busy, system } = useProject();
   const p = data.project;
   const [name, setName] = useState(p.name);
+  const [aiProfile, setAiProfile] = useState(p.ai_profile);
+  const defaultConn = system.ai_profiles.find((x) => x.default);
   const [ov, setOv] = useState<Overview>(p.overview);
   const [delName, setDelName] = useState("");
   const set = <K extends keyof Overview>(k: K, v: Overview[K]) => setOv({ ...ov, [k]: v });
   const partial = PHASES.some(([k]) => !ov.phases[k]);
 
   const save = async () => {
-    const r = await run(() => api.patch<ProjectResponse>(P(p.id), { name, overview: ov, version: data.version }), "저장했습니다.");
+    const r = await run(() => api.patch<ProjectResponse>(P(p.id), { name, overview: ov, ai_profile: aiProfile, version: data.version }), "저장했습니다.");
     if (r) {
       setData(r);
       setOv(r.project.overview);
@@ -38,6 +40,26 @@ export default function OverviewStep() {
         <div className="form-grid">
           <Field label="사업 이름">
             <input value={name} onChange={(e) => setName(e.target.value)} />
+          </Field>
+          <Field label="AI 연결" hint={data.ai.note || "질문·초안·FP 후보·문서 분석에 쓸 AI. 외부 AI는 요청마다 전송 동의를 받습니다."}>
+            <select value={aiProfile} onChange={(e) => setAiProfile(e.target.value)}>
+              <option value="">서버 기본값 — {defaultConn?.display}</option>
+              {system.ai_profiles
+                .filter((x) => x.usable)
+                .map((x) => (
+                  <option key={x.name} value={x.name}>
+                    {x.display}
+                    {x.external ? " (외부 전송)" : x.is_real_ai ? " (내부)" : ""}
+                  </option>
+                ))}
+              {system.ai_profiles
+                .filter((x) => !x.usable)
+                .map((x) => (
+                  <option key={x.name} value={x.name} disabled>
+                    {x.label} — 설정 부족: {x.missing.join(", ")}
+                  </option>
+                ))}
+            </select>
           </Field>
           <Field label="사업 유형">
             <select value={ov.business_type} onChange={(e) => set("business_type", e.target.value as Overview["business_type"])}>

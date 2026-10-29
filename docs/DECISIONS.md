@@ -84,5 +84,17 @@
 - 확인: Git 이력에 키·`.env`·DB·업로드 문서·산정양식 원본 없음(점검 완료). 테스트 문서는 코드로 생성한 가상 데이터.
 - 주의: 이후 실데이터·비밀값 커밋 금지 원칙이 더 중요해짐.
 
+### D-018 (2026-10-29) 여러 AI 공급자 교체·병행(사용자 지시)
+- 지시: "한 가지 AI API만 쓰는 구조가 아니라 여러 AI API·상용 LLM으로 갈아끼울 수 있어야 한다. 기본은 ChatGPT(OpenAI) 키."
+- 선택: 연결 프로필(AIProfile) 여러 개를 환경변수로 동시에 설정 → `ProviderRegistry`가 사용 가능한 연결을 모으고, 프로젝트마다 `ai_profile`로 선택(비우면 서버 기본).
+  - 공급자: `openai`(공식 SDK, Chat Completions + json_schema strict), `anthropic`(공식 SDK, 구조화 출력), `compatible`(OpenAI 호환 API: Azure OpenAI v1·vLLM·Ollama·국내 LLM 등, JSON 방식 json_schema/json_object/prompt 선택, 내부 설치면 외부 전송 아님), `sample`(규칙), `mock`(테스트).
+  - 기본값: `AI_PROVIDER` 미지정 시 `OPENAI_API_KEY`가 있으면 openai, 없으면 sample. 외부 연결은 요청마다 전송 범위 동의가 필요하므로 키가 있다고 몰래 전송되지 않음.
+  - 공통: 응답 검증·재시도·변경안·동의는 공급자와 무관하게 tasks.py에서 처리. 변경안·작업 결과에 사용한 연결 이름(`source`) 기록.
+  - 스키마: 공급자마다 지원이 다른 제약(maxItems 등)은 보내는 스키마에서 빼고, 서버의 Pydantic 검증으로 다시 확인.
+- 대안: LiteLLM 같은 통합 라이브러리 — 의존성·동작 범위가 커서 보류. 필요하면 compatible 연결로 LiteLLM 프록시 주소를 넣어 쓸 수 있음.
+- 실제 OpenAI 검증(2026-10-29, `gpt-6.1-sol`) 후 기본값 조정: 출력 상한 `AI_MAX_OUTPUT_TOKENS` 32000(설계 응답이 8000에서 잘림), 시간 제한 `AI_TIMEOUT_SEC` 600초(설계 1건 약 2분), SDK 자동 재시도 1회(재시도가 대기 시간을 몇 배로 늘림). 근거는 VALIDATION §5-3.
+- 미결: Anthropic·사내/상용 LLM 실제 호출 검증(키·주소 필요).
+
 ## 과거 결정
+- D-007(AI 어댑터: Anthropic 단일 + 샘플, 키가 있어도 기본 샘플)은 D-018로 대체됨.
 - D-001의 '공개 범위 변경 없음'(Private 유지)은 D-017로 대체됨.
