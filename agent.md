@@ -61,7 +61,7 @@
 # 백엔드 (uv 필요)
 cd backend && uv sync                       # 의존성 설치
 cd backend && uv run pytest -q              # 백엔드 테스트
-cd backend && APP_ENV=development AUTH_DISABLED=true uv run uvicorn app.main:app --reload --port 8000
+cd backend && APP_ENV=development AUTH_DISABLED=true uv run uvicorn app.main:create_app --factory --reload --port 8000
 # 프런트엔드
 cd frontend && npm ci && npm run typecheck && npm run build
 cd frontend && npm run dev                  # http://localhost:5173 (API는 8000으로 프록시)
