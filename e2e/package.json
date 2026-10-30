@@ -2,6 +2,6 @@
   "name": "sw-design-helper-e2e",
   "private": true,
   "description": "브라우저 E2E(CI용). 로컬에 Playwright가 전역 설치되어 있으면 설치 없이 node e2e/flow.cjs 로 실행 가능",
-  "scripts": { "e2e": "node flow.cjs" },
+  "scripts": { "e2e": "node flow.cjs && node reference.cjs" },
   "devDependencies": { "playwright": "1.63.0" }
 }

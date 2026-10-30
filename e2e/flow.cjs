@@ -16,7 +16,7 @@ function check(cond, msg) {
 
 (async () => {
   const browser = await chromium.launch();
-  const page = await browser.newPage({ acceptDownloads: true, viewport: { width: 1400, height: 900 } });
+  const page = await browser.newPage({ acceptDownloads: true, viewport: { width: 1400, height: 900 }, ignoreHTTPSErrors: !!process.env.E2E_IGNORE_HTTPS_ERRORS });
   page.on("dialog", (d) => d.accept());
   const shot = (n) => page.screenshot({ path: path.join(OUT, `${n}.png`), fullPage: true });
   try {
