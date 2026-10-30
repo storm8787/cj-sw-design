@@ -37,7 +37,8 @@ Render는 GitHub 저장소 연결과 화면 입력만으로 배포·HTTPS·비�
 | HTTPS 쿠키 | `COOKIE_SECURE` | `true` | render.yaml |
 | 데이터 영속 저장 | `DATA_DIR` + 디스크 | `/data`, 디스크 1GB를 `/data`에 연결 | render.yaml |
 | AI(기본 OpenAI) | `OPENAI_API_KEY` | 사용자 키 | **사용자** (Render 화면, 비밀값). 비우면 샘플 모드 |
-| AI 모델 | `OPENAI_MODEL` | `gpt-6.1-sol`(2026-10-29 실제 검증한 모델) | render.yaml |
+| AI 모델 | `OPENAI_MODEL` | `gpt-6-luna`(2026-10-30 비교시험 통과, `docs/AI_COST.md`) | render.yaml |
+| AI 모델(FP 후보만) | `OPENAI_MODEL_FP_CANDIDATES` | `gpt-6.1-sol`(FP 후보는 상위 모델 유지) | render.yaml |
 | 포트 | `PORT` | Render가 지정(기본 10000) | 자동 — 이미지가 `PORT`를 따라감 |
 | 엑셀 다운로드 | (추가 설정 없음) | 로그인 쿠키로 `/api/projects/{id}/export.xlsx` 내려받기 | — |
 
@@ -51,7 +52,10 @@ Render는 GitHub 저장소 연결과 화면 입력만으로 배포·HTTPS·비�
 3. Dashboard → **New → Blueprint** → GitHub 연결 → 저장소 `storm8787/cj-sw-design` 선택.
 4. 입력란이 뜨면: `ADMIN_PASSWORD`(10자 이상, 남에게 알려 주지 않는 새 비밀번호), `OPENAI_API_KEY`(본인 키, 샘플 모드로만 볼 거면 비움).
 5. **Apply** → 빌드·배포(수 분) → 서비스 화면의 `https://….onrender.com` 주소로 접속.
-6. 확인: 주소 접속 시 로그인 화면 → 비밀번호 로그인 → 상단에 'OpenAI(ChatGPT) · gpt-6.1-sol'(키를 넣은 경우) 또는 '샘플 모드' 표시.
+6. 확인: 주소 접속 시 로그인 화면 → 비밀번호 로그인 → 상단에 'OpenAI(ChatGPT) · gpt-6-luna (작업별: FP 후보 gpt-6.1-sol)'(키를 넣은 경우) 또는 '샘플 모드' 표시.
+
+### 이미 배포한 서비스의 모델 바꾸기(2026-10-30)
+`render.yaml`을 바꿔도 **기존 서비스의 환경변수는 자동으로 바뀌지 않을 수 있다**(Blueprint 동기화 여부에 따라 다름). Render → 서비스 → Environment에서 `OPENAI_MODEL=gpt-6-luna`로 바꾸고 `OPENAI_MODEL_FP_CANDIDATES=gpt-6.1-sol`을 추가한 뒤 저장(재시작). 확인: 상단 AI 표시, 각 AI 작업 상태의 '호출 모델 …'(질문·설계는 gpt-6-luna, FP 후보는 gpt-6.1-sol). 자세한 근거·확인 순서는 `docs/AI_COST.md` §7.
 
 Blueprint 화면이 막히면 수동으로: New → Web Service → 저장소 선택 → Runtime **Docker**, Region **Singapore**, Instance **Starter**,
 Health Check Path `/api/health`, Advanced → Disk 추가(Mount Path `/data`, 1GB) → 위 표의 환경변수 입력.

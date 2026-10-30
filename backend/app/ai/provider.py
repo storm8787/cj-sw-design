@@ -24,6 +24,9 @@ from . import usage
 log = logging.getLogger("swd.ai")
 
 
+TASK_LABELS = {"questions": "질문", "requirements": "요구사항", "design": "설계", "fp_candidates": "FP 후보", "doc_extract": "문서 추출"}
+
+
 class AIError(RuntimeError):
     """AI 호출 실패. 메시지는 사용자에게 보여줄 수 있는 한국어."""
 
@@ -46,7 +49,9 @@ class AIProvider:
         return self.task_models.get(task) or self.model
 
     def display(self) -> str:
-        return f"{self.label} · {self.model}" if self.model else self.label
+        base = f"{self.label} · {self.model}" if self.model else self.label
+        extra = [f"{TASK_LABELS.get(t, t)} {m}" for t, m in self.task_models.items() if m and m != self.model]
+        return base + (f" (작업별: {', '.join(extra)})" if extra else "")
 
     def describe(self) -> dict[str, Any]:
         return {"name": self.name, "kind": self.kind, "label": self.label, "model": self.model, "task_models": dict(self.task_models), "reasoning_effort": self.reasoning_effort,

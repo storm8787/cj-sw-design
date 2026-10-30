@@ -67,3 +67,15 @@ def test_fp_candidates_retry_when_function_has_no_transaction_candidate(app_fact
     job = c.post(f"/api/projects/{pid}/ai/fp_candidates", json={"consent": True, "force": True}).json()["job"]
     assert job["usage"]["calls"] == 2
     assert any("처리(EI/EO/EQ) 후보가 연결되지 않은 기능" in w for w in job["result"]["warnings"])
+
+
+def test_display_shows_task_model(monkeypatch):
+    from app.ai.provider import build_provider
+    from app.config import Settings
+
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+    monkeypatch.setenv("OPENAI_MODEL", "small-model")
+    monkeypatch.setenv("OPENAI_MODEL_FP_CANDIDATES", "big-model")
+    prov = build_provider(load_ai_profiles()["openai"], Settings())
+    assert prov.model_for("fp_candidates") == "big-model" and prov.model_for("design") == "small-model"
+    assert prov.display() == "OpenAI(ChatGPT) · small-model (작업별: FP 후보 big-model)"
