@@ -1,4 +1,4 @@
-// 실제 브라우저 E2E: 로그인 → 프로젝트 생성 → 질문 답변 → 요구사항 입력·편집 → 설계 → FP 확정 → 기준 산정·목표예산 → 저장 확인(새로고침) → 엑셀 다운로드.
+// 실제 브라우저 E2E: 로그인 → 프로젝트 생성 → 질문 답변 → 요구사항 입력·편집 → 설계 → FP 업무 확인(숫자 입력 없음) → 기준 산정·목표예산 → 저장 확인(새로고침) → 엑셀 다운로드.
 // 실행: 서버를 띄운 뒤 `E2E_PASSWORD=... node e2e/flow.cjs` (기본 주소 http://127.0.0.1:8000)
 const { chromium } = require("playwright");
 const fs = require("fs");
@@ -87,7 +87,7 @@ function check(cond, msg) {
     check((await page.locator("table.grid tbody tr").count()) >= 5, "기능설계 반영");
     await shot("04-design");
 
-    // 7. FP 후보 → 적용 → 1건 확정(DET/FTR 입력)
+    // 7. FP 후보 → 적용 → 비전문가 업무 확인(숫자 입력 없음) → 1건만 전문가 직접 입력
     await page.getByRole("link", { name: "5 FP·개발비" }).click();
     await page.getByRole("button", { name: "기능·데이터로 FP 후보 만들기" }).click();
     await page.locator(".proposal").first().waitFor();
@@ -96,24 +96,42 @@ function check(cond, msg) {
     const fpTable = page.locator(".card", { hasText: "FP 항목 표" });
     const fpCount = await fpTable.locator("tbody tr").count();
     check(fpCount >= 3, `FP 후보 ${fpCount}건 적용(초안)`);
-    for (let i = 0; i < Math.min(fpCount, 4); i++) {
-      const row = fpTable.locator("tbody tr").nth(i);
+    check(/미산정/.test(await page.locator(".kpi").first().innerText()), "업무 확인 전: 간이법 '미산정'(0원을 견적으로 보이지 않음)");
+    const scope = page.locator(".card", { hasText: "업무 확인 — 남은 후보" });
+    let confirmed = 0;
+    for (let i = 0; i < 40; i++) {
+      const row = scope.locator("tbody tr").first();
+      if (!(await row.count())) break;
+      const sel = row.locator("select");
+      if (!(await sel.inputValue())) {
+        await sel.selectOption({ label: "자료를 등록·수정·삭제하는 처리" });
+        await page.waitForTimeout(400);
+      }
+      await scope.locator("tbody tr").first().getByRole("button", { name: "있음" }).click();
+      await page.waitForTimeout(400);
+      confirmed++;
+    }
+    check(confirmed >= 3 && !(await scope.locator("tbody tr").count()), `업무 확인 '있음' ${confirmed}건(DET·FTR·유형 약어 입력 없음)`);
+    const kpi = await page.locator(".kpi").first().innerText();
+    check(/추정 산정|부분 산정/.test(kpi) && !/미산정/.test(kpi), `업무 확인 후 간이법 산정: ${kpi.replace(/\n/g, " ")}`);
+    // 전문가 경로(선택): 표에서 1건을 직접 입력·확정
+    {
+      const row = fpTable.locator("tbody tr").first();
       await row.getByRole("button", { name: "수정" }).click();
       const ed = fpTable.locator("tr.editing");
-      const typeSel = ed.getByLabel("유형");
-      if ((await typeSel.inputValue()) === "__null") await typeSel.selectOption("EI");
-      await ed.getByLabel("FTR/RET").fill("1");
-      await ed.getByLabel("DET").fill("10");
+      await ed.getByLabel("FTR/RET 직접값(전문가)").fill("1");
+      await ed.getByLabel("DET 직접값(전문가)").fill("10");
       await ed.getByLabel("상태").selectOption("confirmed");
       await ed.getByRole("button", { name: "저장" }).click();
       await page.waitForTimeout(500);
     }
-    const kpi = await page.locator(".kpi").first().innerText();
-    check(!/\b0 FP/.test(kpi), `확정 FP 집계: ${kpi.replace(/\n/g, " ")}`);
+    check(await page.getByText(/집계\(확정\)/).first().isVisible(), "전문가 확정 항목은 '집계(확정)'으로 구분");
 
     // 8. 기준 산정 → 목표예산 시나리오
     await page.getByRole("button", { name: "기준 산정 실행·저장" }).click();
     await page.getByText("총액(부가세 포함)").first().waitFor();
+    await page.locator(".estimate").first().waitFor();
+    check(await page.locator(".estimate .badge", { hasText: /추정 산정|부분 산정/ }).first().isVisible(), "견적 버전에 산정 상태(추정/부분) 표시");
     await page.getByLabel("목표 금액").fill("50000000");
     await page.getByRole("button", { name: "시나리오 만들기" }).click();
     await page.getByText("예산 조정 결과(참고, 공식 측정값 아님)").waitFor();
