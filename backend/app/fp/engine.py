@@ -136,6 +136,10 @@ class DesignIndex:
     fn_outputs: dict[str, list[str]]
     data_items: dict[str, list[str]]
     data_groups: dict[str, list[str]]
+    data_names: dict[str, str]
+
+    def data_names_of(self, ids: list[str]) -> list[str]:
+        return [self.data_names[d] for d in ids if d in self.data_names]
 
     @classmethod
     def of(cls, project: Project) -> "DesignIndex":
@@ -145,6 +149,7 @@ class DesignIndex:
             {f.id: parse_items(f.outputs) for f in project.functions},
             {d.id: parse_items(d.attributes) for d in project.data_entities},
             {d.id: unique_items(d.subgroups) for d in project.data_entities},
+            {d.id: d.name for d in project.data_entities},
         )
 
 
@@ -180,10 +185,12 @@ def derive_metrics(it: FPItem, idx: DesignIndex) -> tuple[int | None, int | None
             derived = True
             notes.append(f"FTR {ftr} = 참조·유지 데이터 {', '.join(refs)}")
     elif ftr is None and t in DATA_TYPES and det is not None:
-        groups = unique_items(it.ret_groups) or unique_items([g for d in it.data_ids for g in idx.data_groups.get(d, [])])
-        ftr = max(1, len(groups))
+        # RET = 기본 묶음 1 + 추가 하위 그룹 수(예: 신청 정보 + 승인 이력 → 2). 데이터 이름 자체를 적은 것은 기본 묶음으로 본다.
+        base = {normalize_name(re.sub(r"\s*정보$", "", x)) for x in [it.name, *idx.data_names_of(it.data_ids)]}
+        groups = [g for g in (unique_items(it.ret_groups) or unique_items([g for d in it.data_ids for g in idx.data_groups.get(d, [])])) if normalize_name(re.sub(r"\s*정보$", "", g)) not in base]
+        ftr = 1 + len(groups)
         derived = True
-        notes.append(f"RET {ftr} = 하위 그룹 {len(groups)}개({', '.join(groups)})" if groups else "RET 1 = 하위 그룹 근거 없음(데이터 기능은 최소 1)")
+        notes.append(f"RET {ftr} = 기본 묶음 1 + 하위 그룹 {len(groups)}개({', '.join(groups)})" if groups else "RET 1 = 기본 묶음만(하위 그룹 없음)")
     return det, ftr, derived, notes
 
 
@@ -355,15 +362,14 @@ def calc_detailed(results: list[ItemResult]) -> dict[str, Any]:
 def coverage(project: Project, results: list[ItemResult]) -> dict[str, Any]:
     """요구사항 단위 FP 연결 현황."""
     linked: dict[str, list[str]] = {}
+    dropped: dict[str, list[str]] = {}  # 업무 확인에서 '없음'으로 제외한 FP만 연결된 요구사항(사용자 결정 — 미연결과 구분)
     fn_req: dict[str, list[str]] = {f.id: f.requirement_ids for f in project.functions}
     for it in project.fp_items:
-        if it.status == "excluded":
-            continue
         reqs = set(it.requirement_ids)
         for fid in it.function_ids:
             reqs.update(fn_req.get(fid, []))
         for rid in reqs:
-            linked.setdefault(rid, []).append(it.id)
+            (dropped if it.status == "excluded" else linked).setdefault(rid, []).append(it.id)
     rows = []
     for r in project.requirements:
         if r.status == "excluded":
@@ -372,6 +378,8 @@ def coverage(project: Project, results: list[ItemResult]) -> dict[str, Any]:
             state = "FP 대상 아님(비기능·검수기준 관리)"
         elif linked.get(r.id):
             state = "FP 연결"
+        elif dropped.get(r.id):
+            state = "FP 없음(후보를 제외로 결정)"
         else:
             state = "FP 미연결"
         rows.append({"requirement_id": r.id, "title": r.title, "kind": r.kind, "state": state, "fp_ids": linked.get(r.id, [])})

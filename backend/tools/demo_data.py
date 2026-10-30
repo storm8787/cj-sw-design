@@ -272,7 +272,7 @@ def build_b(api: Api) -> tuple[str, bytes]:
     titles = {"SFR-001": ("시설 예약 일정 조회", "functional", ""), "SFR-002": ("시설 예약·취소", "functional", ""), "SFR-003": ("예약 승인·반려", "functional", ""),
               "SFR-004": ("이용료 결제 연계", "functional", ""), "SFR-005": ("이용 실적·이용률 통계", "functional", ""), "SFR-008": ("개인정보 암호화 저장", "nonfunctional", "보안")}
     for r in _items(api, pid, "requirements"):
-        code = r["title"][:7]
+        code = (r["original_text"] or r["title"])[:7]
         if code in titles:
             t, kind, cat = titles[code]
             pay = code == "SFR-004"

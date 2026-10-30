@@ -220,7 +220,7 @@ def task_design(app, ctx: JobContext, params: dict[str, Any]) -> dict[str, Any]:
                 "requirement_ids와 existing_data_ids는 <project_data>에 있는 ID만 쓰십시오. 확인 안 된 연계 방식·상대 시스템은 '확인 필요'로 쓰십시오. "
                 "기능의 inputs/outputs는 화면·파일로 주고받는 데이터 항목을 쉼표로 나열하십시오(예: '성명, 연락처, 신청금액, 증빙파일'). 설명 문장은 rules에 쓰십시오. "
                 "신규 사업이라 정해지지 않은 항목은 일반적인 설계안으로 제안하되, 기관 계약·외부 규격이 필요한 것은 '확인 필요'로 쓰십시오. "
-                "데이터마다 attributes(주요 항목 목록)와 subgroups(하위 그룹, 예: 승인 이력)를 쓰십시오. 공통 화면·검증 로직을 별도 기능으로 쪼개지 마십시오.\n<project_data>\n" + json.dumps(project_brief(p), ensure_ascii=False) + "\n</project_data>")
+                "데이터마다 attributes(주요 항목 목록)와 subgroups(기본 묶음을 뺀 추가 하위 그룹, 예: 승인 이력)를 쓰십시오. 공통 화면·검증 로직을 별도 기능으로 쪼개지 마십시오.\n<project_data>\n" + json.dumps(project_brief(p), ensure_ascii=False) + "\n</project_data>")
         out, warnings = call_ai(prov, "design", user, S.DesignOut, lambda o: _validate_design(p, o) + lang_problems([f.name for f in o.functions] + [f.purpose for f in o.functions] + [d.name for d in o.data_entities]))
     else:
         out = sample.design(p)
@@ -260,7 +260,7 @@ def task_fp(app, ctx: JobContext, params: dict[str, Any]) -> dict[str, Any]:
     if prov.is_real_ai:
         user = ("기능·데이터를 보고 FP 후보(단위프로세스·데이터 기능)를 제시하십시오. 유형이 불확실하면 fp_type=null과 uncertainty를 쓰십시오. "
                 "DET/FTR/RET 숫자는 쓰지 말고 null로 두십시오(시스템 코드가 셉니다). 대신 det_items에 그 처리가 경계를 넘어 주고받는 데이터 요소 목록을, "
-                "데이터 기능은 det_items에 항목 목록·ret_groups에 하위 그룹을, data_ids에 참조·유지하는 데이터 ID를 쓰십시오. 같은 항목을 두 번 쓰지 마십시오. "
+                "데이터 기능은 det_items에 항목 목록·ret_groups에 기본 묶음을 뺀 추가 하위 그룹을, data_ids에 참조·유지하는 데이터 ID를 쓰십시오. 같은 항목을 두 번 쓰지 마십시오. "
                 "<project_data>의 '기존FP'와 같은 처리는 새로 만들지 말고 같은 이름으로 쓰십시오(시스템이 기존 항목 갱신안으로 바꿉니다). "
                 "물리 테이블 수를 데이터 기능 수로 바꾸지 말고, 본인확인·중복확인·권한·파기·파일 다운로드는 독립된 업무 처리인지(경계 안 데이터를 바꾸거나 별도 출력인지) 근거를 rationale에 쓰십시오. "
                 "점수는 쓰지 마십시오. ID는 <project_data>에 있는 것만 쓰십시오.\n<project_data>\n" + json.dumps(project_brief(p, with_fp=True), ensure_ascii=False) + "\n</project_data>")

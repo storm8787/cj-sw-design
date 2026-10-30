@@ -10,6 +10,7 @@ from fastapi import APIRouter, File, Form, Request, Response, UploadFile
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
+from .ai import sample
 from .auth import COOKIE
 from .docs_extract import extract as dx
 from .excel import export as xl
@@ -614,7 +615,7 @@ def decide_ref(pid: str, rid: str, body: DecideIn, request: Request):
             text = body.modified_text if body.decision == "modify" else ref.text
             kind = "functional" if ref.kind in ("requirement", "function", "interface", "data") else "nonfunctional"
             warn = (" ※ 타 기관 고유 조건 포함(" + ", ".join(ref.org_specific) + ") — 우리 사업 값으로 확인 필요") if ref.org_specific else ""
-            r = add_item(p, m, "requirements", {"kind": kind, "category": "참고문서", "title": text[:60], "original_text": ref.text, "description": text, "source_ids": [ref.source_id] if ref.source_id else [], "why": f"참고문서 {ref.location} {'유지' if body.decision == 'keep' else '수정 반영'}{warn}", "note": body.reason, "status": "draft"}, origin="document")
+            r = add_item(p, m, "requirements", {"kind": kind, "category": "참고문서", "title": sample.short_title(text), "original_text": ref.text, "description": text, "source_ids": [ref.source_id] if ref.source_id else [], "why": f"참고문서 {ref.location} {'유지' if body.decision == 'keep' else '수정 반영'}{warn}", "note": body.reason, "status": "draft"}, origin="document")
             ref.applied_requirement_id = r.id
         elif body.decision in ("keep", "modify") and ref.applied_requirement_id and body.decision == "modify":
             update_item(p, m, "requirements", ref.applied_requirement_id, {"description": body.modified_text, "note": body.reason})
