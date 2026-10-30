@@ -27,15 +27,22 @@ backend/                      Python 3.12+ FastAPI (uv, uv.lock)
   app/tech/recommend.py       HW·SW 구성 추천 규칙, 공식 자료 후보
   app/tech/fetch.py           허용 도메인 조회(SSRF 차단)
   app/services/*.py           과업 초안, 샘플 프로젝트, 변경안 적용, 백업·복원, 진행 상태
+  tools/demo_data.py          정적 시연판 샘플 생성·검증(개발·빌드 단계 전용, 서버 런타임에 포함 안 됨)
   tests/                      pytest(가상 문서 생성기 포함, 실데이터 없음)
 frontend/                     React 18 + TypeScript + Vite (package-lock.json)
   src/App.tsx                 로그인·해시 라우팅·모드 표시
   src/pages/                  Home(시작 4종·목록·복원), Workspace(7단계), Login
   src/steps/                  Overview, Sources(질문·문서·참고항목), Requirements, Design, Fp, Review(검토·추천), Excel
-  src/components/             EditableTable, Proposals, Jobs, ui
-e2e/flow.cjs                  Playwright 브라우저 E2E
-Dockerfile, .dockerignore     단일 서버 이미지(화면+API, /data 볼륨)
+  src/components/             EditableTable, Proposals, Jobs, ui(읽기 전용: ActionButton·EditArea·useReadOnly)
+  src/demo/                   정적 시연판 전용 api.ts(정적 JSON 어댑터)·DemoApp.tsx — build:demo에서만 api.ts·App.tsx 대신 사용
+  demo-public/demo-data/      시연 샘플(생성물, 커밋 안 함) → dist-demo/
+e2e/flow.cjs, reference.cjs   Playwright 브라우저 E2E(구상 기반 / 참고문서 기반)
+e2e/demo.cjs                  정적 시연판 E2E(정적 서버만, /api·외부 요청 0건 확인)
+Dockerfile, .dockerignore     단일 서버 이미지(화면+API, /data 볼륨, PORT 환경변수)
+docker-entrypoint.sh          /data 소유자 맞춘 뒤 비루트(app)로 전환
+render.yaml                   Render 테스트 배포 설정(Blueprint, docs/DEPLOY.md)
 .github/workflows/ci.yml      백엔드 테스트·프런트 타입검사/빌드·E2E·이미지 빌드
+.github/workflows/pages.yml   샘플 시연판 생성·빌드·확인, main에서만 GitHub Pages 배포(docs/DEMO.md)
 ```
 
 ## 2. 데이터 흐름
@@ -127,5 +134,6 @@ Dockerfile, .dockerignore     단일 서버 이미지(화면+API, /data 볼륨)
 - 개발: 백엔드 8000 + Vite 5173(프록시) 또는 `frontend/dist` 빌드 후 백엔드 하나로 실행.
 - Docker: `docker build -t sw-design-helper .` → `docker run -p 8000:8000 -v swdata:/data --env-file .env sw-design-helper`.
   DB·업로드·사용자 정의 기준은 `/data` 볼륨에 남아 컨테이너 교체(재배포) 후에도 유지(2026-10-29 실제 확인, VALIDATION 참고).
-- HTTPS 종단은 리버스 프록시(기관 웹서버·로드밸런서)에서 처리하고 `COOKIE_SECURE=true`로 운영.
-- GitHub Pages로는 동작하지 않는다(Python 서버 필요). 외부 공개 배포·유료 자원 생성은 하지 않았다(미배포).
+- HTTPS 종단은 배포 서비스·리버스 프록시(기관 웹서버·로드밸런서)에서 처리하고 `COOKIE_SECURE=true`로 운영.
+- 테스트 배포 추천안: Render 웹 서비스 1대 + 디스크(`render.yaml`, DECISIONS D-019, `docs/DEPLOY.md`). 2026-10-30 로컬에서 배포 조건(root 소유 디스크·PORT·HTTPS)으로 점검.
+- 실제 앱은 GitHub Pages로 동작하지 않는다(Python 서버 필요). Pages에는 서버·AI 없이 가상 샘플을 보여 주는 **정적 시연판**만 올린다(`docs/DEMO.md`, D-020). 외부 공개 배포·유료 자원 생성은 하지 않았다(미배포, 사용자 결정 대기).

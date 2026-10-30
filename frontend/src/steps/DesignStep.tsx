@@ -3,7 +3,7 @@ import { api, P } from "../api";
 import { EditableTable, type Col } from "../components/EditableTable";
 import { JobStatus, useJobRunner } from "../components/Jobs";
 import { Proposals } from "../components/Proposals";
-import { Badge, Section, useProject } from "../components/ui";
+import { ActionButton, Badge, EditArea, Section, useProject } from "../components/ui";
 import { ORIGIN } from "../labels";
 import type { ProjectResponse, Row } from "../types";
 
@@ -75,9 +75,9 @@ export default function DesignStep() {
       <Section
         title="설계 작업대"
         right={
-          <button className="primary" disabled={jr.running} onClick={() => jr.start(`${P(pid)}/ai/design`)}>
+          <ActionButton className="primary" disabled={jr.running} onClick={() => jr.start(`${P(pid)}/ai/design`)}>
             요구사항으로 설계 초안 만들기
-          </button>
+          </ActionButton>
         }
       >
         <p className="muted small">발주자가 검토할 초안입니다. 확인하지 않은 DB·API·기존 시스템 구조는 '확인 필요'로 남기세요. 화면·테이블 수는 FP 수와 같지 않습니다.</p>
@@ -127,9 +127,9 @@ function TaskDraft() {
       right={
         <>
           {data.status.task_draft_stale && <Badge kind="st-review">갱신 필요</Badge>}{" "}
-          <button className="primary" disabled={busy} onClick={gen}>
+          <ActionButton className="primary" disabled={busy} onClick={gen}>
             {td.sections.length ? "현재 내용으로 다시 구성" : "초안 만들기"}
-          </button>
+          </ActionButton>
         </>
       }
     >
@@ -138,14 +138,14 @@ function TaskDraft() {
         <div key={s.key} className="task-sec">
           <div className="row-actions">
             <b>{s.title}</b> {s.user_edited && <Badge kind="or-user">직접 수정함</Badge>}
-            {edit[s.key] === undefined ? <button onClick={() => setEdit({ ...edit, [s.key]: s.text })}>수정</button> : <button className="primary" onClick={() => save(s.key, { text: edit[s.key] })}>저장</button>}
+            {edit[s.key] === undefined ? <ActionButton onClick={() => setEdit({ ...edit, [s.key]: s.text })}>수정</ActionButton> : <ActionButton className="primary" onClick={() => save(s.key, { text: edit[s.key] })}>저장</ActionButton>}
           </div>
           {edit[s.key] !== undefined ? <textarea rows={8} value={edit[s.key]} onChange={(e) => setEdit({ ...edit, [s.key]: e.target.value })} aria-label={s.title} /> : <pre>{s.text}</pre>}
           {s.regenerated_candidate && (
             <div className="compare">
               <div className="muted small">현재 데이터로 다시 만든 내용(직접 고친 내용은 덮어쓰지 않음):</div>
               <pre>{s.regenerated_candidate}</pre>
-              <button onClick={() => save(s.key, { accept_candidate: true })}>이 내용으로 바꾸기</button>
+              <ActionButton onClick={() => save(s.key, { accept_candidate: true })}>이 내용으로 바꾸기</ActionButton>
             </div>
           )}
         </div>
@@ -186,10 +186,12 @@ function History() {
   return (
     <>
       <Section title="설계 스냅샷(과거 버전 보존)">
-        <div className="row-actions">
-          <input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="예: 1차 검토 전" aria-label="스냅샷 이름" />
-          <button onClick={snap}>현재 상태 저장</button>
-        </div>
+        <EditArea>
+          <div className="row-actions">
+            <input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="예: 1차 검토 전" aria-label="스냅샷 이름" />
+            <button onClick={snap}>현재 상태 저장</button>
+          </div>
+        </EditArea>
         <ul>
           {snaps.map((s) => (
             <li key={s.id}>

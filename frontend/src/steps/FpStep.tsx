@@ -3,7 +3,7 @@ import { api, P } from "../api";
 import { EditableTable, type Col } from "../components/EditableTable";
 import { JobStatus, useJobRunner } from "../components/Jobs";
 import { Proposals } from "../components/Proposals";
-import { Badge, Field, Help, Section, Warn, useProject } from "../components/ui";
+import { ActionButton, Badge, EditArea, Field, Help, Section, Warn, useProject } from "../components/ui";
 import { CX_SOURCE, num, won } from "../labels";
 import type { CostSettings, Estimate, FPSummary, ProjectResponse, Row } from "../types";
 
@@ -55,9 +55,9 @@ export default function FpStep() {
         title="FP 항목"
         help={<Help term="FP" />}
         right={
-          <button className="primary" disabled={jr.running} onClick={() => jr.start(`${P(pid)}/ai/fp_candidates`)}>
+          <ActionButton className="primary" disabled={jr.running} onClick={() => jr.start(`${P(pid)}/ai/fp_candidates`)}>
             기능·데이터로 FP 후보 만들기
-          </button>
+          </ActionButton>
         }
       >
         <p className="muted small">
@@ -179,7 +179,8 @@ function CostPanel() {
   };
   const exp = cs.direct_expenses;
   return (
-    <Section title="개발비 산정 설정" right={<button className="primary" disabled={busy} onClick={save}>설정 저장</button>}>
+    <Section title="개발비 산정 설정" right={<ActionButton className="primary" disabled={busy} onClick={save}>설정 저장</ActionButton>}>
+      <EditArea>
       <div className="form-grid">
         <Field label="산정 기준 버전">
           <select value={cs.standard_id} onChange={(e) => setCs({ ...cs, standard_id: e.target.value })}>
@@ -253,6 +254,7 @@ function CostPanel() {
         </tbody>
       </table>
       <button onClick={() => setCs({ ...cs, direct_expenses: [...exp, { id: `DE-${Date.now()}`, name: "", basis: "", amount: 0 }] })}>+ 직접경비</button>
+      </EditArea>
       {preview && (
         <div className="preview-box">
           <b>저장된 설정 기준 미리보기:</b> FP {preview.fp.total_fp} → 공급가액 {won(preview.money.supply)} / 총액(부가세 포함) {won(preview.money.total)} {!preview.complete && <Badge kind="st-review">미완료</Badge>}
@@ -283,12 +285,14 @@ function Estimates() {
     <Section
       title="기준 산정(견적 버전)"
       right={
-        <div className="row-actions">
-          <input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="버전 이름(선택)" aria-label="견적 버전 이름" />
-          <button className="primary" disabled={busy} onClick={create}>
-            기준 산정 실행·저장
-          </button>
-        </div>
+        <EditArea>
+          <div className="row-actions">
+            <input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="버전 이름(선택)" aria-label="견적 버전 이름" />
+            <ActionButton className="primary" disabled={busy} onClick={create}>
+              기준 산정 실행·저장
+            </ActionButton>
+          </div>
+        </EditArea>
       }
     >
       <p className="muted small">견적 버전은 당시 FP 내역·기준값·설정을 그대로 보관합니다. 이후 값을 바꾸면 '갱신 필요'로 표시되고 과거 버전은 남습니다.</p>
@@ -329,16 +333,18 @@ function Estimates() {
             {e.complete && (
               <div className="scenario-box">
                 <b>목표예산 시나리오</b> <Help term="TARGET" />
+                <EditArea>
                 <div className="row-actions">
                   <input inputMode="numeric" value={target} onChange={(x) => setTarget(x.target.value)} placeholder="목표 금액(원)" aria-label="목표 금액" />
                   <select value={vat ? "1" : "0"} onChange={(x) => setVat(x.target.value === "1")} aria-label="부가세 포함 여부">
                     <option value="1">부가세 포함</option>
                     <option value="0">부가세 별도</option>
                   </select>
-                  <button disabled={busy || !target} onClick={() => scenario(e)}>
+                  <ActionButton disabled={busy || !target} onClick={() => scenario(e)}>
                     시나리오 만들기
-                  </button>
+                  </ActionButton>
                 </div>
+                </EditArea>
                 {e.scenarios.map((s) => {
                   const r = s.result;
                   return (

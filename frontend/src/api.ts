@@ -52,6 +52,9 @@ export const api = {
 
 export const P = (pid: string) => `/api/projects/${pid}`;
 
+/** 내려받기 링크 주소(서버 앱은 그대로). 정적 시연판 빌드에서는 같은 이름의 함수가 정적 파일 주소로 바꾼다. */
+export const fileUrl = (url: string): string | null => url;
+
 export async function waitJob(job: Job, onProgress?: (j: Job) => void): Promise<Job> {
   let j = job;
   while (j.status === "queued" || j.status === "running") {

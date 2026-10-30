@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { api, P } from "../api";
-import { Field, Help, Section, useProject } from "../components/ui";
+import { ActionButton, EditArea, Field, Help, Section, useProject, useReadOnly } from "../components/ui";
 import { SYSTEM_KINDS } from "../labels";
 import type { Overview, ProjectResponse } from "../types";
 
@@ -13,6 +13,7 @@ const PHASES: [keyof Overview["phases"], string][] = [
 
 export default function OverviewStep() {
   const { data, setData, run, busy, system } = useProject();
+  const ro = useReadOnly();
   const p = data.project;
   const [name, setName] = useState(p.name);
   const [aiProfile, setAiProfile] = useState(p.ai_profile);
@@ -36,7 +37,8 @@ export default function OverviewStep() {
 
   return (
     <>
-      <Section title="사업 개요" right={<button className="primary" disabled={busy} onClick={save}>저장</button>}>
+      <Section title="사업 개요" right={<ActionButton className="primary" disabled={busy} onClick={save}>저장</ActionButton>}>
+        <EditArea>
         <div className="form-grid">
           <Field label="사업 이름">
             <input value={name} onChange={(e) => setName(e.target.value)} />
@@ -108,9 +110,11 @@ export default function OverviewStep() {
             <input value={ov.boundary_name} onChange={(e) => set("boundary_name", e.target.value)} placeholder="예: 교육관리시스템" />
           </Field>
         </div>
+        </EditArea>
       </Section>
 
       <Section title="금액 조건(먼저 정하기)">
+        <EditArea>
         <div className="form-grid">
           <Field label="예산">
             <select value={ov.budget_mode} onChange={(e) => set("budget_mode", e.target.value as Overview["budget_mode"])}>
@@ -147,9 +151,11 @@ export default function OverviewStep() {
               </Field>
             ))}
         </div>
+        </EditArea>
         <p className="muted small">장비 구매비는 개발비 합계에 넣지 않습니다. HW·SW 구성은 '검토·추천' 단계에서 참고용으로 제시합니다.</p>
       </Section>
 
+      {!ro && (
       <Section title="프로젝트 삭제">
         <p className="muted">삭제하면 이 프로젝트의 데이터·첨부·견적이 모두 지워지고 되돌릴 수 없습니다. 다른 프로젝트에는 영향이 없습니다. 먼저 '엑셀' 단계에서 JSON 백업을 받아 두세요.</p>
         <div className="row-actions">
@@ -159,6 +165,7 @@ export default function OverviewStep() {
           </button>
         </div>
       </Section>
+      )}
     </>
   );
 }

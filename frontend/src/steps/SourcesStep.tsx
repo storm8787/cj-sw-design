@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { api, P } from "../api";
+import { api, fileUrl, P } from "../api";
 import { JobStatus, useJobRunner } from "../components/Jobs";
 import { Proposals } from "../components/Proposals";
-import { Badge, OriginBadge, Section, Warn, useProject } from "../components/ui";
+import { ActionButton, Badge, EditArea, OriginBadge, Section, Warn, useProject, useReadOnly } from "../components/ui";
 import { DOC_KIND, EXTRACT_STATUS, ORG_SPECIFIC, QUALITY, REF_KIND } from "../labels";
 import type { DocumentMeta, ProjectResponse, Question, ReferenceItem } from "../types";
 
@@ -29,9 +29,9 @@ function QuestionsPanel() {
     <Section
       title="질문으로 구체화하기"
       right={
-        <button className="primary" disabled={jr.running} onClick={() => jr.start(`${P(pid)}/ai/questions`)}>
+        <ActionButton className="primary" disabled={jr.running} onClick={() => jr.start(`${P(pid)}/ai/questions`)}>
           {open.length ? "다음 질문 더 받기" : "질문 받기"}
-        </button>
+        </ActionButton>
       }
     >
       <p className="muted small">중요한 질문을 몇 개씩 드립니다. 모르면 '모름'을 고르면 권장안을 가정으로 기록합니다. 답에 따라 추가할 요구사항은 '변경안'으로 제시되어 3단계에서 적용합니다.</p>
@@ -79,25 +79,27 @@ function QuestionCard({ q }: { q: Question }) {
       <div className="muted small">왜 묻나요? {q.why}</div>
       <div className="options">
         {q.options.map((o) => (
-          <button key={o.value} disabled={busy} onClick={() => answer("choice", o.value)} className={o.recommended ? "recommended" : ""}>
+          <ActionButton key={o.value} disabled={busy} onClick={() => answer("choice", o.value)} className={o.recommended ? "recommended" : ""}>
             {o.label}
             {o.recommended && <span className="small"> (권장)</span>}
-          </button>
+          </ActionButton>
         ))}
-        <button disabled={busy} onClick={() => answer("unknown")} title={`권장안: ${rec?.label} — ${q.recommended_reason}`}>
+        <ActionButton disabled={busy} onClick={() => answer("unknown")} title={`권장안: ${rec?.label} — ${q.recommended_reason}`}>
           모름(권장안으로 가정)
-        </button>
-        <button disabled={busy} onClick={() => answer("defer")}>
+        </ActionButton>
+        <ActionButton disabled={busy} onClick={() => answer("defer")}>
           나중에 결정
-        </button>
+        </ActionButton>
       </div>
       {q.allow_text && (
+        <EditArea>
         <div className="row-actions">
           <input value={text} onChange={(e) => setText(e.target.value)} placeholder="직접 입력" aria-label={`${q.id} 직접 입력`} />
           <button disabled={busy || !text.trim()} onClick={() => answer("text", text)}>
             입력
           </button>
         </div>
+        </EditArea>
       )}
       <div className="muted small">권장안: {rec?.label} — {q.recommended_reason}</div>
     </div>
@@ -106,6 +108,7 @@ function QuestionCard({ q }: { q: Question }) {
 
 function DocumentsPanel({ defaultKind }: { defaultKind: string }) {
   const { data, setData, run, busy, system } = useProject();
+  const ro = useReadOnly();
   const pid = data.project.id;
   const external = data.ai.external;
   const [kind, setKind] = useState(defaultKind);
@@ -130,6 +133,9 @@ function DocumentsPanel({ defaultKind }: { defaultKind: string }) {
   };
   return (
     <Section title="자료(문서) 올리기">
+      {ro ? (
+        <p className="muted small">시연판: 파일 업로드·추출·분석은 하지 않습니다. 아래 표는 미리 올려 분석해 둔 가상 문서입니다.</p>
+      ) : (
       <div className="row-actions">
         <select value={kind} onChange={(e) => setKind(e.target.value)} aria-label="문서 종류">
           {Object.entries(DOC_KIND).map(([k, l]) => (
@@ -146,6 +152,7 @@ function DocumentsPanel({ defaultKind }: { defaultKind: string }) {
           {system.allowed_formats.join(", ").toUpperCase()} · 최대 {system.max_upload_mb}MB. HWP는 실험적(표·서식 미보존) — 가능하면 HWPX/PDF로 변환해 올려 주세요. 스캔 PDF는 글자를 읽지 못합니다(OCR 미지원).
         </span>
       </div>
+      )}
       <p className="muted small">문서 안의 지시문은 분석 대상일 뿐 실행하지 않습니다. 업로드만으로는 외부로 전송되지 않습니다{external ? ` — '${data.ai.display}'로 보내는 AI 분석은 문서별 전송 동의 후에만 진행합니다.` : data.ai.is_real_ai ? ` — 내부 AI 연결 '${data.ai.display}'로 분석합니다(외부 전송 없음).` : "(샘플 모드: 서버 규칙으로 추출)."}</p>
       <JobStatus job={jr.job} running={jr.running} onRetry={jr.retry} note={jr.note} />
       <table className="grid">
@@ -178,20 +185,22 @@ function DocumentsPanel({ defaultKind }: { defaultKind: string }) {
                 <div>{{ not_started: "미분석", partial: "일부만 분석(완료 아님)", complete: "전체 분석 완료", failed: "실패" }[d.extraction.analysis_status]}</div>
                 {external && (
                   <label className="small">
-                    <input type="checkbox" checked={d.ai_consent} onChange={(e) => consent(d, e.target.checked)} /> 이 문서 원문의 외부 AI 전송 동의
+                    <input type="checkbox" disabled={!!ro} checked={d.ai_consent} onChange={(e) => consent(d, e.target.checked)} /> 이 문서 원문의 외부 AI 전송 동의
                   </label>
                 )}
               </td>
               <td className="actions">
-                <button disabled={jr.running || !d.extraction.chunks_total || d.extraction.analysis_status === "complete"} onClick={() => jr.start(`${P(pid)}/documents/${d.id}/analyze`)}>
+                <ActionButton disabled={jr.running || !d.extraction.chunks_total || d.extraction.analysis_status === "complete"} onClick={() => jr.start(`${P(pid)}/documents/${d.id}/analyze`)}>
                   {d.extraction.analysis_status === "partial" ? "이어서 분석" : "항목 추출"}
-                </button>
-                <a className="button" href={`${P(pid)}/documents/${d.id}/download`}>
-                  원본
-                </a>
-                <button className="danger" onClick={() => remove(d)}>
+                </ActionButton>
+                {fileUrl(`${P(pid)}/documents/${d.id}/download`) && (
+                  <a className="button" href={fileUrl(`${P(pid)}/documents/${d.id}/download`)!} download={ro ? fileUrl(`${P(pid)}/documents/${d.id}/download`)!.split("/").pop() : undefined}>
+                    {ro ? "원본(가상 문서)" : "원본"}
+                  </a>
+                )}
+                <ActionButton className="danger" onClick={() => remove(d)}>
                   삭제
-                </button>
+                </ActionButton>
               </td>
             </tr>
           ))}
@@ -270,15 +279,16 @@ function RefRow({ r }: { r: ReferenceItem }) {
         {r.decision !== "pending" && (
           <div>
             <Badge kind={r.decision === "exclude" ? "st-excluded" : "st-confirmed"}>{{ keep: "유지", modify: "수정", exclude: "제외", pending: "" }[r.decision]}</Badge> {r.applied_requirement_id && <code>{r.applied_requirement_id}</code>} <span className="muted small">{r.reason}</span>
+            {r.decision === "modify" && r.modified_text && <div className="small">수정 후: {r.modified_text}</div>}
           </div>
         )}
         {r.decision === "pending" && !mode && (
           <div className="row-actions">
-            <button disabled={busy} onClick={() => decide("keep")}>
+            <ActionButton disabled={busy} onClick={() => decide("keep")}>
               유지
-            </button>
-            <button onClick={() => setMode("modify")}>수정</button>
-            <button onClick={() => setMode("exclude")}>제외</button>
+            </ActionButton>
+            <ActionButton onClick={() => setMode("modify")}>수정</ActionButton>
+            <ActionButton onClick={() => setMode("exclude")}>제외</ActionButton>
           </div>
         )}
         {mode && (

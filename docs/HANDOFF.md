@@ -1,15 +1,17 @@
-# HANDOFF — 인수인계 (최종 갱신 2026-10-29)
+# HANDOFF — 인수인계 (최종 갱신 2026-10-30)
 
 ## 1. 현재 위치
-- 저장소: `storm8787/cj-sw-design`(2026-10-29 사용자가 Public으로 전환) · 작업 브랜치: `claude/kind-franklin-pjcpsr` · PR #1·#2 병합 완료, PR #3(여러 AI 연결·실제 OpenAI 검증) 진행 중
-- 최근 커밋: `git log --oneline -5`로 확인. 문서(지침) → 백엔드 → 화면·E2E·배포 → 문서 마무리 순.
-- PR: 만들지 않음(요청 시 생성).
+- 저장소: `storm8787/cj-sw-design`(2026-10-29 사용자가 Public으로 전환) · 작업 브랜치: `claude/kind-franklin-pjcpsr`
+- PR #1(초기 구현)·#2(리뷰 지적 수정)·#3(여러 AI 연결·실제 OpenAI 검증) 모두 `main`에 병합 완료(2026-10-29).
+- 2026-10-30 작업: 테스트 배포 준비(Render 설정 `render.yaml`, 디스크 권한 처리 `docker-entrypoint.sh`, `PORT` 대응, 참고문서 E2E, `docs/DEPLOY.md`·`docs/USER_TEST.md`). 브랜치에만 있음 — 배포하려면 `main` 병합 필요(사용자 결정).
+- 2026-10-30 작업(2): GitHub Pages 샘플 시연판(`docs/DEMO.md`, DECISIONS D-020) — 시연 빌드·샘플 생성기·Pages 워크플로·시연 E2E. 같은 브랜치·PR.
+- 배포 상태: 실제 앱 **미배포**(Render 다음 작업, 가입·결제·비밀값 입력은 사용자 몫 `docs/DEPLOY.md` §3). 샘플 시연판 **미배포** — 예상 주소 `https://storm8787.github.io/cj-sw-design/`, Settings → Pages → Source: GitHub Actions 설정 후 main 병합 시 배포.
 
 ## 2. 구현 현황 (PROJECT_SPEC ID 기준)
 
 | 구분 | 상태 | 비고 |
 |---|---|---|
-| 공통 구조 SPEC-01~09 | 완료 | Docker 이미지 빌드·실행·재배포 영속성 확인. 외부 배포는 미실시(SPEC-08 의도) |
+| 공통 구조 SPEC-01~09 | 완료 | Docker 이미지 빌드·실행·재배포 영속성 확인. 배포 서비스와 같은 설정(root 소유 디스크·PORT·HTTPS)으로 로컬 점검 완료. 외부 배포는 미실시(사용자 결정 대기) |
 | 핵심 데이터 SPEC-10~19 | 완료 | 고유 ID, 1:N 연결, 영향 표시, 견적 스냅샷, 변경안 적용 |
 | A 프로젝트 관리 | 완료 | 생성·목록·이름 변경·이어하기·삭제(이름 확인)·샘플 2종 |
 | B 구상 기반 설계 | 완료 | 질문 은행 26종(공통+목적별 트리거). 실제 AI 질문 생성은 OpenAI로 확인(VALIDATION §5-3) |
@@ -22,26 +24,33 @@
 | 엑셀 X1~X6 | 완료 | 12시트+검산, LibreOffice 재계산 일치 확인 |
 | 품질 Q1~Q12 | 완료 | 단일 관리자 인증, CSRF, 업로드 검증, SSRF 차단, 백업·복원, 작업 재사용·중단 표시 |
 | 여러 AI 연결(D-018) | 완료 | OpenAI 기본·Anthropic·OpenAI 호환 상용/사내 LLM·샘플을 동시에 설정, 프로젝트별 선택. OpenAI만 실제 호출 확인 |
+| 샘플 시연판(D-020) | 완료(배포 전) | 정적 빌드·샘플 2종(생성기·검증)·읽기 전용 화면·Pages 워크플로·시연 E2E. 실제 Pages 배포는 사용자 설정·병합 후 |
 | 실제 AI 호출 | OpenAI 검증 / 그 외 **미검증** | OpenAI `gpt-6.1-sol`로 질문·요구사항·설계·FP 후보·문서 추출 모두 성공(VALIDATION §5-3, 발견된 문제 4건 수정). Anthropic·사내/상용 LLM은 실제 호출 미검증 |
 
 ## 3. 테스트 결과 (상세: `docs/VALIDATION.md`)
-- 백엔드 pytest **117 passed**(2026-10-29, 실제 OpenAI 검증·PR #3 리뷰 수정 후), 프런트 타입검사·빌드 성공, 브라우저 E2E 통과, Docker 빌드·실행·재배포 영속성 확인.
-- GitHub Actions(`.github/workflows/ci.yml`): run #1(ce87b9f) backend·frontend·e2e·docker 모두 성공(backend 88 passed / 1 skipped: 러너에 LibreOffice 없음). 이후 문서 커밋의 실행 결과는 Actions 탭에서 확인.
+- 백엔드 pytest **120 passed**(2026-10-30), 프런트 타입검사·일반 빌드·시연 빌드 성공.
+- 샘플 시연판(VALIDATION §5-5): 정적 서버만으로 `e2e/demo.cjs` 통과 — `/api`·외부·404·콘솔 오류 0건, 모바일·태블릿, 샘플 엑셀 재계산 검산 일치.
+- 배포 설정 로컬 점검(2026-10-30, VALIDATION §5-4): HTTPS 프록시 뒤 운영 모드 컨테이너에서 구상 기반(`e2e/flow.cjs`)·참고문서 기반(`e2e/reference.cjs`) 브라우저 E2E 통과, 컨테이너 교체 후 데이터 유지, 실제 OpenAI 질문·문서 추출 성공, 엑셀 다운로드, 로그에 비밀값·원문 없음.
+- GitHub Actions(`.github/workflows/ci.yml`): PR #3 최신 커밋(56998ac)에서 backend·frontend·e2e·docker 모두 성공. 이번 브랜치부터 e2e job이 참고문서 E2E도 실행.
 
 ## 4. 알려진 문제·제약
 1. KOSA 가이드 원문 미확인(네트워크 차단) — 단가 605,784원은 '2024 가이드' 표기 양식값, 이윤율 0.20은 양식 예시값, 끝수·단계 비율은 시스템/사용자 설정. `docs/FP_RULES.md §8`.
 2. 샘플 모드 규칙은 표현 기반이라 FP 후보가 과대·과소일 수 있음(모두 '초안'으로 들어가 사용자 확정 필요).
 3. 실 HWP 미검증, OCR 없음, PDF 표 구조 미보존.
-4. 단일 프로세스 내 작업 실행(스레드). 다중 인스턴스 배포는 고려하지 않음.
+4. 단일 프로세스 내 작업 실행(스레드). 다중 인스턴스 배포는 고려하지 않음(배포 시 1대 고정). 재배포·재시작 때 실행 중이던 AI 작업은 '중단' 표시 후 재시도.
 5. 첨부 원본은 JSON 백업에 포함되지 않음(볼륨 백업 별도 필요).
 6. 이 작업 환경 특성: Docker Hub 429·ghcr 차단·TLS 검사 프록시 → 로컬 Docker 빌드는 mirror.gcr.io 기반 이미지 + `--secret id=extra_ca` 사용.
+7. 로그인 실패 제한(5회/5분)이 배포 프록시 주소 단위로 걸려, 배포 환경에서는 모든 접속자가 함께 5분간 막힐 수 있음(단일 관리자 테스트용 한계).
+8. 샘플 시연판은 읽기 전용 정적 화면(새 계산·생성 없음). 샘플 데이터는 커밋하지 않고 빌드 때 `backend/tools/demo_data.py`로 생성하므로, 화면·모델·계산을 바꾼 뒤 `npm run demo:data`가 실패하면 생성기(`build_a`·`build_b`)를 함께 고쳐야 Pages 배포가 진행됨.
 
 ## 5. 다음 작업(우선순위)
-1. 사내/상용 LLM 또는 Anthropic을 쓸 경우 `LLM_*`·`ANTHROPIC_*`로 VALIDATION §5-3과 같은 절차(다섯 작업 각 1회) 실행. 설계 작업은 출력이 길어 1~2분 걸림(기본 시간 제한 600초).
-2. sw.or.kr 접근 가능한 환경에서 가이드 2025 개정판 확인 → 차이가 있으면 새 기준 JSON 추가(기존 파일 수정 금지, 과거 견적 보존).
-3. 실제 HWP 샘플로 추출 검증, 필요 시 변환 도구 연동 검토.
-4. 운영 배포 결정(기관 서버/클라우드, HTTPS, 백업 정책) — 사용자 결정 필요.
-5. AI 보조 문서 검토, 다중 사용자·권한, 유지관리비 등 후속 확장(PROJECT_SPEC §7).
+1. (사용자) Settings → Pages → Source: **GitHub Actions** 선택 → PR 병합 → Actions 'Pages 시연판' 성공 확인 → 시연 주소 접속. 배포되면 HANDOFF §1·VALIDATION §5-5에 실제 주소·확인 결과 기록.
+2. (사용자) 이 브랜치를 `main`에 병합 → `docs/DEPLOY.md` §3대로 Render 배포 → `docs/USER_TEST.md` A·B 순서로 직접 테스트 → 문제 기록을 다음 작업으로 반영. 배포 후 VALIDATION에 실제 배포 확인 결과 기록.
+3. 사내/상용 LLM 또는 Anthropic을 쓸 경우 `LLM_*`·`ANTHROPIC_*`로 VALIDATION §5-3과 같은 절차(다섯 작업 각 1회) 실행. 설계 작업은 출력이 길어 1~2분 걸림(기본 시간 제한 600초).
+4. sw.or.kr 접근 가능한 환경에서 가이드 2025 개정판 확인 → 차이가 있으면 새 기준 JSON 추가(기존 파일 수정 금지, 과거 견적 보존).
+5. 실제 HWP 샘플로 추출 검증, 필요 시 변환 도구 연동 검토.
+6. 운영(기관 서비스) 배포 결정(기관 서버/클라우드, 실데이터 보안 검토, 백업 정책) — 사용자 결정 필요. 테스트 배포와 별개.
+7. AI 보조 문서 검토, 다중 사용자·권한, 유지관리비 등 후속 확장(PROJECT_SPEC §7).
 
 ## 6. 재개 명령
 ```bash
@@ -61,6 +70,7 @@ cd backend && APP_ENV=development AUTH_DISABLED=true uv run uvicorn app.main:cre
 ```
 
 ## 7. 외부 설정 필요사항
+- 테스트 배포(Render): 사용자가 입력할 값은 `ADMIN_PASSWORD`(또는 해시)와 `OPENAI_API_KEY`뿐. `SECRET_KEY`는 Render가 생성, 나머지는 `render.yaml`. 비용 약 월 7.25달러 + OpenAI 사용료(`docs/DEPLOY.md` §1).
 - 운영: `SECRET_KEY`, `ADMIN_PASSWORD_HASH`(또는 `ADMIN_PASSWORD`), HTTPS 프록시와 `COOKIE_SECURE=true`, `/data` 볼륨 백업.
 - AI 사용 시: 기본 OpenAI는 `OPENAI_API_KEY`·`OPENAI_MODEL`(검증한 모델: `gpt-6.1-sol`), 그 밖은 `.env.example`의 AI 연결 항목 참고. 각 서비스 결제 화면에서 월 지출 한도 설정. 외부 전송 동의 정책을 기관 보안 지침과 맞출 것.
 - GitHub Actions: 비공개 상태에서는 계정 결제·지출 한도 문제로 작업 시작이 거부되었음(2026-10-29). Public 전환 후 정상 실행. 다시 비공개로 바꾸면 Billing & plans의 Actions 한도를 확인해야 함.

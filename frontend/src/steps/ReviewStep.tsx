@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { api, P } from "../api";
 import { EditableTable, type Col } from "../components/EditableTable";
-import { Badge, Field, Section, useProject } from "../components/ui";
+import { ActionButton, Badge, EditArea, Field, Section, useProject } from "../components/ui";
 import { DOC_KIND, VERDICT } from "../labels";
 import type { ProjectResponse, Row } from "../types";
 
@@ -26,13 +26,14 @@ function ReviewPanel() {
   };
   const shown = verdict ? p.reviews.filter((f) => f.verdict === verdict) : p.reviews;
   return (
-    <Section title="기존 문서 검토(대조)" right={<button className="primary" disabled={busy} onClick={runReview}>검토 실행</button>}>
+    <Section title="기존 문서 검토(대조)" right={<ActionButton className="primary" disabled={busy} onClick={runReview}>검토 실행</ActionButton>}>
       <p className="muted small">
         업체 과업·설계·FP·금액 문서를 '자료·질문' 단계에서 종류를 지정해 올린 뒤 실행하세요. 결과는 자료끼리의 일치 검토이며, 실제 성능·연계 가능성·보안 충족은 문서만으로 확정할 수 없습니다.{" "}
         <button className="link" onClick={() => goto("sources")}>
           문서 올리러 가기
         </button>
       </p>
+      <EditArea>
       <div className="checks">
         {p.documents.map((d) => (
           <label key={d.id}>
@@ -40,6 +41,7 @@ function ReviewPanel() {
           </label>
         ))}
       </div>
+      </EditArea>
       {p.review_run.ran_at && (
         <div className="row-actions">
           <span className="muted small">
@@ -115,7 +117,8 @@ function TechPanel() {
   );
   const numIn = (k: string) => <input type="number" value={inp[k] === null || inp[k] === undefined ? "" : String(inp[k])} onChange={(e) => set(k, e.target.value === "" ? null : Number(e.target.value))} />;
   return (
-    <Section title="HW·SW 구성 추천(설계 보조)" right={<button className="primary" disabled={busy} onClick={() => save(true)}>입력 저장 후 추천</button>}>
+    <Section title="HW·SW 구성 추천(설계 보조)" right={<ActionButton className="primary" disabled={busy} onClick={() => save(true)}>입력 저장 후 추천</ActionButton>}>
+      <EditArea>
       <div className="form-grid">
         <Field label="구축 방식">{sel("deployment", [["unknown", "미정"], ["onprem", "자체 서버"], ["cloud", "클라우드"], ["hybrid", "혼합"]])}</Field>
         <Field label="망 구분">{sel("network", [["unknown", "미정"], ["internal", "내부망"], ["external", "인터넷"], ["both", "둘 다"]])}</Field>
@@ -138,6 +141,7 @@ function TechPanel() {
           <input value={String(inp.integrations ?? "")} onChange={(e) => set("integrations", e.target.value)} />
         </Field>
       </div>
+      </EditArea>
       <p className="muted small">자체 서버 사양은 입력 가정에 따른 초기 추정이며 성능을 보장하지 않습니다(부하시험 후 조정). 클라우드는 인스턴스 사양을 제시하지 않습니다. 장비·유료 SW·클라우드 비용은 개발비에 포함하지 않습니다.</p>
       {p.tech.ran_at && (
         <>
@@ -202,7 +206,7 @@ function SourcesPanel() {
       readOnly: true,
       width: 80,
       render: (r) => (
-        <button
+        <ActionButton
           disabled={busy}
           onClick={async () => {
             const res = await run(() => api.post<ProjectResponse & { fetched: { title: string } }>(`${P(pid)}/official-sources/${r.id}/fetch`));
@@ -213,7 +217,7 @@ function SourcesPanel() {
           }}
         >
           서버 조회
-        </button>
+        </ActionButton>
       ),
     },
   ];
@@ -222,7 +226,7 @@ function SourcesPanel() {
     if (r) setData(r);
   };
   return (
-    <Section title="공식 자료(최신 추천 근거)" right={<button onClick={addSuggested}>후보 공식 URL 등록</button>}>
+    <Section title="공식 자료(최신 추천 근거)" right={<ActionButton onClick={addSuggested}>후보 공식 URL 등록</ActionButton>}>
       <p className="muted small">최신 버전·지원 상태는 공식 자료를 확인한 날짜와 함께 기록해야 '확인됨'으로 표시됩니다. 서버 조회는 허용된 공식 도메인만 가능하며(내부 주소 차단), 페이지 제목만 확인합니다.</p>
       <EditableTable collection="official_sources" rows={data.project.official_sources as unknown as Row[]} cols={cols} statusCol={false} addLabel="공식 자료 등록" />
     </Section>

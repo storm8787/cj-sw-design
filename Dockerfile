@@ -23,9 +23,13 @@ RUN --mount=type=secret,id=extra_ca,required=false \
 COPY backend/app ./app
 COPY --from=web /web/dist /app/frontend/dist
 ENV FRONTEND_DIST=/app/frontend/dist DATA_DIR=/data APP_ENV=production PATH="/app/backend/.venv/bin:$PATH"
-RUN useradd --system --uid 10001 app && mkdir -p /data && chown app /data
-USER app
+RUN useradd --system --uid 10001 --user-group app && mkdir -p /data && chown app:app /data
+COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod 755 /usr/local/bin/docker-entrypoint.sh
+# root로 시작해 /data 소유자만 맞추고 서버는 app(비루트)으로 실행한다(docker-entrypoint.sh).
 VOLUME ["/data"]
 EXPOSE 8000
-HEALTHCHECK --interval=30s --timeout=5s CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=3)"
-CMD ["uvicorn", "app.main:create_app", "--factory", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers"]
+HEALTHCHECK --interval=30s --timeout=5s CMD python -c "import os, urllib.request; urllib.request.urlopen('http://127.0.0.1:%s/api/health' % os.environ.get('PORT', '8000'), timeout=3)"
+ENTRYPOINT ["docker-entrypoint.sh"]
+# PORT: 배포 서비스가 지정하면 그 포트, 없으면 8000
+CMD ["sh", "-c", "exec uvicorn app.main:create_app --factory --host 0.0.0.0 --port ${PORT:-8000} --proxy-headers"]

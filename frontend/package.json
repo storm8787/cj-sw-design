@@ -5,9 +5,13 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:demo": "vite --mode demo",
     "build": "tsc -b && vite build",
+    "build:demo": "tsc -b && vite build --mode demo",
     "typecheck": "tsc -b --noEmit",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "preview:demo": "vite preview --mode demo",
+    "demo:data": "cd ../backend && uv run python -m tools.demo_data && uv run python -m tools.demo_data --check"
   },
   "dependencies": {
     "react": "18.3.1",
