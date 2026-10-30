@@ -1,14 +1,24 @@
-# HANDOFF — 인수인계 (최종 갱신 2026-10-30, D-022)
+# HANDOFF — 인수인계 (최종 갱신 2026-10-30, D-023·D-024)
 
 ## 1. 현재 위치
-- 저장소: `storm8787/cj-sw-design`(Public) · 작업 브랜치: `claude/kind-franklin-pjcpsr`
-- PR #1~#5 모두 `main`에 병합. 이번 작업(설계·FP 비전문가 흐름, D-022)은 이 브랜치의 새 PR로 올림 — **main 병합 전**.
-- 배포 상태(사용자 확인 기준, 2026-10-30):
-  - 실제 앱: 사용자가 Render에 배포 — **배포된 소스는 main `e9d7e50`**(PR #5 병합 시점). 이번 수정은 아직 배포되지 않았다. "소스 배포됨"과 "새 수정 검증됨"은 별개이며, 새 수정은 PR 병합 → Render 자동 재배포 후 `docs/USER_TEST.md` §C로 확인해야 한다.
-  - 샘플 시연판: `https://storm8787.github.io/cj-sw-design/`(main 병합 시 자동 재배포). 작업 세션은 공개 주소에 접속하지 못해 공개 화면은 사용자가 확인.
-- 대상 사용자: **설계·FP 비전문가 공무원**. 업무를 설명하고 업무상 선택(있음/없음/모름, 처리 종류)을 확인하면, 앱이 설계·산정 근거를 정리하고 코드가 계산한다.
+- 저장소: `storm8787/cj-sw-design`(Public) · 작업 브랜치: `claude/kind-franklin-pjcpsr`(PR #6 병합 후 최신 main에서 다시 시작)
+- PR #1~#6 모두 `main`에 병합. 이번 작업(D-023 AI 비용·모델, D-024 엑셀 서식)은 새 PR — **main 병합 전**.
+- 배포 상태:
+  - 실제 앱: 사용자가 Render(`https://sw-design-helper.onrender.com`)에 배포. 이번 변경은 아직 배포되지 않았다.
+    - **모델 전환은 코드·render.yaml 기본값만 바꿨다.** 기존 Render 서비스의 `OPENAI_MODEL` 환경변수는 사용자가 바꿔야 할 수 있다(`docs/AI_COST.md` §7). 작업 세션은 운영 환경에 접근하지 않았다.
+  - 샘플 시연판: `https://storm8787.github.io/cj-sw-design/`(main 병합 시 자동 재배포). 샘플 엑셀도 새 서식으로 생성된다.
+- 대상 사용자: **설계·FP 비전문가 공무원**.
 
-### 이번 작업(D-022) 요약 — 사용자 산출물 '충주여행 반값세일 홈페이지 구축_설계산출물' 분석에서 출발
+### 이번 작업(2026-10-30, D-023·D-024)
+| 작업 | 결과 | 근거 |
+|---|---|---|
+| AI 사용량 측정 | 작업마다 입력·캐시·출력·추론 토큰·시간·실패 저장, 작업 상태에 호출 모델·토큰 표시. 작업 제출 때 모델·추론 설정 고정, 재사용 키에 모델 포함 | `backend/app/ai/usage.py`, `jobs.py` |
+| 모델 비교시험 | 가상 3사례, sol 1·terra 1·luna 5·혼합 2회, 추정 $1.34 | `docs/AI_COST.md` |
+| 기본 모델 | `gpt-6-luna` + FP 후보만 `gpt-6.1-sol`. 약 68~75% 절감(이 사례·단가 가정). luna 단독은 FP 후보 필수 처리 누락으로 불채택 | render.yaml, .env.example |
+| FP 후보 검증 | 처리 후보 없는 기능을 코드가 찾아 1회 재요청·경고 | `tasks.fp_function_gaps` |
+| 엑셀 서식 | 산출내역서형 업무 서식·인쇄 설정. 같은 가상 4종 서식 전후 ID·점수·금액 차이 0, LibreOffice 재계산 검산 전부 일치 | `docs/EXCEL_FORMAT.md` |
+
+### 이전 작업(D-022, PR #6 병합) 요약 — 사용자 산출물 '충주여행 반값세일 홈페이지 구축_설계산출물' 분석에서 출발
 | 관찰된 문제 | 원인 | 조치 |
 |---|---|---|
 | 확정 0건인데 '완료'·0원 견적 | 집계 0건도 complete로 판단 | 산정 상태(미산정/부분/추정/확정), 0건이면 금액 없음 |
@@ -40,7 +50,8 @@
 | 품질 Q1~Q12 | 완료 | 단일 관리자 인증, CSRF, 업로드 검증, SSRF 차단, 백업·복원, 작업 재사용·중단 표시 |
 | 여러 AI 연결(D-018) | 완료 | OpenAI 기본·Anthropic·OpenAI 호환 상용/사내 LLM·샘플을 동시에 설정, 프로젝트별 선택. OpenAI만 실제 호출 확인 |
 | 샘플 시연판(D-020) | 완료·배포됨 | 정적 빌드·샘플 2종(생성기·검증)·읽기 전용 화면·Pages 워크플로·시연 E2E. 실제 Pages 배포는 사용자 설정·병합 후 |
-| 실제 AI 호출 | OpenAI 검증 / 그 외 **미검증** | OpenAI `gpt-6.1-sol`로 질문·요구사항·설계·FP 후보·문서 추출 모두 성공(VALIDATION §5-3, 발견된 문제 4건 수정). Anthropic·사내/상용 LLM은 실제 호출 미검증 |
+| 실제 AI 호출 | OpenAI 검증 / 그 외 **미검증** | 2026-10-30 `gpt-6.1-sol`·`gpt-6.1-terra`·`gpt-6-luna` 가상 3사례 비교(`docs/AI_COST.md`), 권장 구성 luna+FP 후보 sol. 이전: `gpt-6.1-sol` 다섯 작업(VALIDATION §5-3). Anthropic·사내/상용 LLM은 실제 호출 미검증 |
+| 엑셀 산출물 서식 | 완료 | 산출내역서형 서식·인쇄(2026-10-30). Microsoft Excel 화면·인쇄 미리보기는 미확인(LibreOffice로 확인) |
 
 ## 3. 테스트 결과 (상세: `docs/VALIDATION.md`)
 - 백엔드 pytest **127 passed**(2026-10-30, D-022 시나리오 A·B·C·리뷰 회귀 포함), 프런트 타입검사·일반 빌드·시연 빌드 성공, 로컬 운영 모드에서 `flow`·`reference`·`ux`·`demo` E2E 통과(VALIDATION §8).
@@ -61,7 +72,8 @@
 8. 샘플 시연판은 읽기 전용 정적 화면(새 계산·생성 없음). 샘플 데이터는 커밋하지 않고 빌드 때 `backend/tools/demo_data.py`로 생성하므로, 화면·모델·계산을 바꾼 뒤 `npm run demo:data`가 실패하면 생성기(`build_a`·`build_b`)를 함께 고쳐야 Pages 배포가 진행됨.
 
 ## 5. 다음 작업(우선순위)
-0. (사용자) 이번 PR 검토·병합 → Render 자동 재배포 확인 → `docs/USER_TEST.md` §C(비전문가 흐름) 실행. 기존 프로젝트는 그대로 열리며(삭제·재설정 없음) 초안 FP는 '업무 확인 전'으로 보인다. 결과를 VALIDATION에 '배포 환경 확인'으로 기록.
+0. (사용자) 이번 PR 검토·병합 → Render 환경변수 `OPENAI_MODEL=gpt-6-luna`, `OPENAI_MODEL_FP_CANDIDATES=gpt-6.1-sol` 확인·변경(`docs/AI_COST.md` §7) → 엑셀 내려받아 인쇄 미리보기 확인(Microsoft Excel) → OpenAI 사용량 화면에서 모델별 금액 확인.
+0-1. (이전) PR 검토·병합 → Render 자동 재배포 확인 → `docs/USER_TEST.md` §C(비전문가 흐름) 실행. 기존 프로젝트는 그대로 열리며(삭제·재설정 없음) 초안 FP는 '업무 확인 전'으로 보인다. 결과를 VALIDATION에 '배포 환경 확인'으로 기록.
 1. (사용자) 시연 주소 `https://storm8787.github.io/cj-sw-design/` 접속 확인(샘플 A·B, 단계 이동, 샘플 엑셀). 문제가 있으면 화면·문구를 알려 주면 수정 후 main 병합으로 재배포.
 2. (사용자) `docs/DEPLOY.md` §3대로 Render 배포(실제 앱, `render.yaml`은 main에 병합됨) → `docs/USER_TEST.md` A·B 순서로 직접 테스트 → 문제 기록을 다음 작업으로 반영. 배포 후 VALIDATION에 실제 배포 확인 결과 기록.
 3. 사내/상용 LLM 또는 Anthropic을 쓸 경우 `LLM_*`·`ANTHROPIC_*`로 VALIDATION §5-3과 같은 절차(다섯 작업 각 1회) 실행. 설계 작업은 출력이 길어 1~2분 걸림(기본 시간 제한 600초).
@@ -91,7 +103,7 @@ cd backend && APP_ENV=development AUTH_DISABLED=true uv run uvicorn app.main:cre
 ## 7. 외부 설정 필요사항
 - 테스트 배포(Render): 사용자가 입력할 값은 `ADMIN_PASSWORD`(또는 해시)와 `OPENAI_API_KEY`뿐. `SECRET_KEY`는 Render가 생성, 나머지는 `render.yaml`. 비용 약 월 7.25달러 + OpenAI 사용료(`docs/DEPLOY.md` §1).
 - 운영: `SECRET_KEY`, `ADMIN_PASSWORD_HASH`(또는 `ADMIN_PASSWORD`), HTTPS 프록시와 `COOKIE_SECURE=true`, `/data` 볼륨 백업.
-- AI 사용 시: 기본 OpenAI는 `OPENAI_API_KEY`·`OPENAI_MODEL`(검증한 모델: `gpt-6.1-sol`), 그 밖은 `.env.example`의 AI 연결 항목 참고. 각 서비스 결제 화면에서 월 지출 한도 설정. 외부 전송 동의 정책을 기관 보안 지침과 맞출 것.
+- AI 사용 시: 기본 OpenAI는 `OPENAI_API_KEY`·`OPENAI_MODEL`(권장 `gpt-6-luna`)·`OPENAI_MODEL_FP_CANDIDATES`(권장 `gpt-6.1-sol`), 그 밖은 `.env.example`의 AI 연결 항목 참고. 각 서비스 결제 화면에서 월 지출 한도 설정. 외부 전송 동의 정책을 기관 보안 지침과 맞출 것.
 - GitHub Actions: 비공개 상태에서는 계정 결제·지출 한도 문제로 작업 시작이 거부되었음(2026-10-29). Public 전환 후 정상 실행. 다시 비공개로 바꾸면 Billing & plans의 Actions 한도를 확인해야 함.
 - 공개 저장소이므로 실제 사업 문서·DB·키·`.env`는 절대 커밋하지 않는다(.gitignore로 차단, 이력 점검 완료).
 

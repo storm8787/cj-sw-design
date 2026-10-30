@@ -40,6 +40,8 @@
 - AI는 **여러 공급자를 바꿔 끼울 수 있게** 유지한다(OpenAI 기본, Anthropic, OpenAI 호환 상용·사내 LLM, 샘플).
   공급자 코드는 `backend/app/ai/provider.py`의 `generate_json()`만 구현하고, 검증·변경안·동의는 공통 코드에서 처리한다.
 - 모델명·키·주소는 환경변수로만 관리한다(`.env.example`). 모델명을 코드에 하드코딩하지 않는다.
+- 모델 변경은 가상 사례의 실제 비교시험을 통과한 구성만 기본값으로 삼는다(`docs/AI_COST.md`, 2026-10-30 권장: 기본 gpt-6-luna + FP 후보 gpt-6.1-sol).
+  작업별 모델(`<PREFIX>_MODEL_<작업>`)과 사용량은 작업에 고정·기록하고, 저가 모델 실패 시 상위 모델로 자동·무제한 재시도하지 않는다.
 
 ## 5. FP·개발비 원칙
 - 간이법과 정통법을 **서로 다른 실제 계산 경로**로 구현한다.
@@ -66,6 +68,7 @@
 ## 8. 화면·출력
 - 한국어 중심, 쉬운 설명(왜 필요한가/분류 근거), 표 직접 편집, 단계별 저장·이어하기.
 - 산출물은 엑셀 중심. 사용자 문장은 엑셀 수식으로 실행되지 않게 처리한다.
+- 엑셀은 산출내역서형 업무 서식·인쇄 설정을 유지한다(`docs/EXCEL_FORMAT.md`). 서식 변경으로 값·ID·산식·검산을 바꾸거나 줄이지 않는다.
 
 ## 9. 명령 (실제 확인 상태는 `docs/VALIDATION.md` 참조)
 ```bash
@@ -86,6 +89,7 @@ docker build -t sw-design-helper . && docker run -p 8000:8000 -v swdata:/data --
 ```
 - 위 명령은 2026-10-29 모두 실제 실행해 확인했다(개발 서버는 화면 200·API 프록시 응답까지). `reference.cjs`·시연판 명령은 2026-10-30 확인. 결과는 `docs/VALIDATION.md`.
 - 테스트 배포 안내는 `docs/DEPLOY.md`, 배포 후 사용자 테스트 순서는 `docs/USER_TEST.md`, 시연판은 `docs/DEMO.md`.
+- AI 모델 비교시험(실제 호출·비용 발생, 가상 자료만): `cd backend && uv run python -m tools.ai_compare --model <모델> --budget 0.5 --out <파일>` (2026-10-30 실행, `docs/AI_COST.md`).
 - 새 명령은 실행해 VALIDATION에 기록하기 전까지 '검증 전'으로 본다.
 
 ## 10. Git에 올리지 않는 것
