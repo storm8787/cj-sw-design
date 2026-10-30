@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { api, P } from "../api";
 import type { ProjectResponse, Row } from "../types";
-import { OriginBadge, StatusBadge, useProject } from "./ui";
+import { OriginBadge, StatusBadge, useProject, useReadOnly } from "./ui";
 
 export interface Col {
   key: string;
@@ -61,6 +61,7 @@ export function Editor({ col, value, onChange }: { col: Col; value: string; onCh
 /** 프로젝트 컬렉션 표: 직접 수정, 추가, 삭제, 상태·출처·재검토 표시. */
 export function EditableTable({ collection, rows, cols, defaults = {}, addLabel = "행 추가", canDelete = true, statusCol = true }: { collection: string; rows: Row[]; cols: Col[]; defaults?: Record<string, unknown>; addLabel?: string; canDelete?: boolean; statusCol?: boolean }) {
   const { data, setData, run, busy } = useProject();
+  const ro = useReadOnly(); // 시연판: 추가·수정·삭제 숨김
   const pid = data.project.id;
   const [editing, setEditing] = useState<string | null>(null);
   const [draft, setDraft] = useState<Record<string, string>>({});
@@ -132,6 +133,7 @@ export function EditableTable({ collection, rows, cols, defaults = {}, addLabel 
     <div className="table-wrap">
       <div className="table-tools">
         <input className="filter" placeholder="표 안에서 찾기" value={filter} onChange={(e) => setFilter(e.target.value)} aria-label="표 검색" />
+        {!ro && (
         <button
           onClick={() => {
             setAdding(true);
@@ -144,6 +146,7 @@ export function EditableTable({ collection, rows, cols, defaults = {}, addLabel 
         >
           + {addLabel}
         </button>
+        )}
         <span className="muted">{rows.length}건</span>
       </div>
       <table className="grid">
@@ -156,7 +159,7 @@ export function EditableTable({ collection, rows, cols, defaults = {}, addLabel 
               </th>
             ))}
             {statusCol && <th style={{ width: 90 }}>상태</th>}
-            <th style={{ width: 120 }}></th>
+            {!ro && <th style={{ width: 120 }}></th>}
           </tr>
         </thead>
         <tbody>
@@ -185,27 +188,31 @@ export function EditableTable({ collection, rows, cols, defaults = {}, addLabel 
                     {row.needs_review ? (
                       <div className="review-flag" title={String(row.review_reason || "")}>
                         재검토 필요
-                        <button className="link" onClick={() => reviewed(row)}>
-                          검토 완료
-                        </button>
+                        {!ro && (
+                          <button className="link" onClick={() => reviewed(row)}>
+                            검토 완료
+                          </button>
+                        )}
                       </div>
                     ) : null}
                   </td>
                 )}
-                <td className="actions">
-                  <button onClick={() => begin(row)}>수정</button>
-                  {canDelete && (
-                    <button className="danger" onClick={() => remove(row)}>
-                      삭제
-                    </button>
-                  )}
-                </td>
+                {!ro && (
+                  <td className="actions">
+                    <button onClick={() => begin(row)}>수정</button>
+                    {canDelete && (
+                      <button className="danger" onClick={() => remove(row)}>
+                        삭제
+                      </button>
+                    )}
+                  </td>
+                )}
               </tr>
             ),
           )}
           {!rows.length && !adding && (
             <tr>
-              <td colSpan={cols.length + 3} className="muted center">
+              <td colSpan={cols.length + (ro ? 2 : 3)} className="muted center">
                 아직 항목이 없습니다.
               </td>
             </tr>

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { api, P } from "../api";
 import { ORIGIN } from "../labels";
 import type { Proposal, ProjectResponse } from "../types";
-import { Badge, Warn, useProject } from "./ui";
+import { ActionButton, Badge, Warn, useProject, useReadOnly } from "./ui";
 
 const COLL: Record<string, string> = { requirements: "요구사항", functions: "기능", data_entities: "데이터", interfaces: "연계", screens: "화면", workflows: "업무흐름", fp_items: "FP 항목" };
 const KIND: Record<string, string> = { requirements: "요구사항 초안", answer: "답변에 따른 제안", design: "설계 초안", fp_candidates: "FP 후보" };
@@ -30,6 +30,7 @@ export function Proposals({ kinds }: { kinds: string[] }) {
 }
 
 function ProposalCard({ pr, pid, onDone, run, busy }: { pr: Proposal; pid: string; onDone: (r: ProjectResponse) => void; run: <T>(fn: () => Promise<T>) => Promise<T | undefined>; busy: boolean }) {
+  const ro = useReadOnly();
   const pending = pr.items.filter((i) => i.status === "pending" || i.status === "conflict");
   const [sel, setSel] = useState<Set<string>>(new Set(pending.map((i) => i.key)));
   const toggle = (k: string) => {
@@ -62,7 +63,7 @@ function ProposalCard({ pr, pid, onDone, run, busy }: { pr: Proposal; pid: strin
         <thead>
           <tr>
             <th style={{ width: 36 }}>
-              <input type="checkbox" aria-label="전체 선택" checked={sel.size === pending.length} onChange={(e) => setSel(new Set(e.target.checked ? pending.map((i) => i.key) : []))} />
+              <input type="checkbox" aria-label="전체 선택" disabled={!!ro} checked={sel.size === pending.length} onChange={(e) => setSel(new Set(e.target.checked ? pending.map((i) => i.key) : []))} />
             </th>
             <th style={{ width: 90 }}>대상</th>
             <th>변경 내용(추가될 값)</th>
@@ -74,7 +75,7 @@ function ProposalCard({ pr, pid, onDone, run, busy }: { pr: Proposal; pid: strin
           {pending.map((i) => (
             <tr key={i.key} className={i.status === "conflict" ? "needs-review" : ""}>
               <td>
-                <input type="checkbox" aria-label={`${i.key} 선택`} checked={sel.has(i.key)} onChange={() => toggle(i.key)} />
+                <input type="checkbox" aria-label={`${i.key} 선택`} disabled={!!ro} checked={sel.has(i.key)} onChange={() => toggle(i.key)} />
               </td>
               <td>
                 {COLL[i.collection] || i.collection} {i.op === "add" ? "추가" : "수정"}
@@ -92,13 +93,13 @@ function ProposalCard({ pr, pid, onDone, run, busy }: { pr: Proposal; pid: strin
         </tbody>
       </table>
       <div className="row-actions">
-        <button className="primary" disabled={busy || !sel.size} onClick={apply}>
+        <ActionButton className="primary" disabled={busy || !sel.size} onClick={apply}>
           선택 {sel.size}건 적용
-        </button>
-        <button disabled={busy || !sel.size} onClick={reject}>
+        </ActionButton>
+        <ActionButton disabled={busy || !sel.size} onClick={reject}>
           선택 거절
-        </button>
-        <span className="muted">적용된 항목은 '초안' 상태로 들어가며 확인 후 확정하세요.</span>
+        </ActionButton>
+        <span className="muted">{ro ? "시연판: 미리 만든 변경안을 보여 줍니다(적용·거절은 실제 앱에서)." : "적용된 항목은 '초안' 상태로 들어가며 확인 후 확정하세요."}</span>
       </div>
     </div>
   );

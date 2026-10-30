@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, type ReactNode } from "react";
+import { createContext, useContext, useState, type ButtonHTMLAttributes, type ReactNode } from "react";
 import { GLOSSARY, ORIGIN, STATUS } from "../labels";
 import type { ProjectResponse, SystemInfo } from "../types";
 
@@ -86,6 +86,8 @@ export interface Ctx {
   run: <T>(fn: () => Promise<T>, okMsg?: string) => Promise<T | undefined>;
   busy: boolean;
   goto: (step: string) => void;
+  /** 비어 있지 않으면 읽기 전용(정적 시연판 빌드에서만 설정). 값은 버튼을 쓸 수 없는 이유. */
+  readOnly?: string;
 }
 
 export const ProjectContext = createContext<Ctx | null>(null);
@@ -93,4 +95,24 @@ export function useProject(): Ctx {
   const c = useContext(ProjectContext);
   if (!c) throw new Error("ProjectContext 없음");
   return c;
+}
+
+export function useReadOnly(): string {
+  return useContext(ProjectContext)?.readOnly || "";
+}
+
+/** 저장·실행 버튼. 읽기 전용(시연판)이면 비활성화하고 이유를 툴팁으로 보여 준다. */
+export function ActionButton({ disabled, title, ...rest }: ButtonHTMLAttributes<HTMLButtonElement>) {
+  const ro = useReadOnly();
+  return <button {...rest} disabled={disabled || !!ro} title={ro || title} />;
+}
+
+/** 입력 묶음. 읽기 전용(시연판)이면 안의 입력·버튼을 모두 비활성화한다. */
+export function EditArea({ children }: { children: ReactNode }) {
+  const ro = useReadOnly();
+  return (
+    <fieldset className="edit-area" disabled={!!ro} title={ro || undefined}>
+      {children}
+    </fieldset>
+  );
 }

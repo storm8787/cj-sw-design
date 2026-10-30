@@ -20,7 +20,8 @@ export const STEPS: { key: string; label: string }[] = [
   { key: "excel", label: "7 엑셀" },
 ];
 
-export default function Workspace({ pid, step, system }: { pid: string; step: string; system: SystemInfo }) {
+/** readOnly: 정적 시연판에서만 넘긴다(버튼을 쓸 수 없는 이유). 서버 앱은 넘기지 않는다. */
+export default function Workspace({ pid, step, system, readOnly }: { pid: string; step: string; system: SystemInfo; readOnly?: string }) {
   const [data, setData] = useState<ProjectResponse | null>(null);
   const [err, setErr] = useState("");
   const [msg, setMsg] = useState("");
@@ -59,7 +60,7 @@ export default function Workspace({ pid, step, system }: { pid: string; step: st
     }
   };
   const goto = (s: string) => (location.hash = `#/p/${pid}/${s}`);
-  const ctx: Ctx = { data, system, setData, reload, run, busy, goto };
+  const ctx: Ctx = { data, system, setData, reload, run, busy, goto, readOnly };
   const st = data.status;
   const cur = STEPS.some((s) => s.key === step) ? step : "overview";
   const stepCount = (k: string) => st.next_steps.filter((n) => n.step === k).length;
@@ -79,7 +80,9 @@ export default function Workspace({ pid, step, system }: { pid: string; step: st
             <span className="chip">미답변 질문 {st.counts.questions_open}</span>
             {st.counts.needs_review > 0 && <span className="chip chip-warn">재검토 {st.counts.needs_review}</span>}
             {st.counts.pending_proposals > 0 && <span className="chip chip-info">검토할 변경안 {st.counts.pending_proposals}</span>}
-            <span className="muted small">저장됨 · v{data.version} · {data.project.updated_at.replace("T", " ").slice(0, 16)}</span>
+            <span className="muted small">
+              {readOnly ? "샘플 데이터 생성" : `저장됨 · v${data.version}`} · {data.project.updated_at.replace("T", " ").slice(0, 16)}
+            </span>
           </div>
         </div>
         <nav className="steps" aria-label="작업 단계">
@@ -90,6 +93,11 @@ export default function Workspace({ pid, step, system }: { pid: string; step: st
             </a>
           ))}
         </nav>
+        {readOnly && (
+          <div className="demo-note" role="note">
+            시연판: 저장·AI 실행·업로드·삭제 버튼은 비활성화되어 있습니다. 화면의 질문·초안·FP 후보는 서버 <b>샘플 규칙</b>으로 미리 만든 결과이며 AI가 만든 것이 아닙니다.
+          </div>
+        )}
         {st.next_steps.length > 0 && (
           <div className="next">
             <b>다음에 필요한 입력</b>

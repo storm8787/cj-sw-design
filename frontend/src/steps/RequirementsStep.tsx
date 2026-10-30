@@ -3,7 +3,7 @@ import { P } from "../api";
 import { EditableTable, type Col } from "../components/EditableTable";
 import { JobStatus, useJobRunner } from "../components/Jobs";
 import { Proposals } from "../components/Proposals";
-import { Section, useProject } from "../components/ui";
+import { ActionButton, EditArea, Section, useProject } from "../components/ui";
 import type { Row } from "../types";
 
 export const REQ_COLS: Col[] = [
@@ -26,12 +26,14 @@ export default function RequirementsStep() {
     <>
       <Section title="생각한 기능 입력 → 요구사항 초안">
         <p className="muted small">자유문장·목록(줄마다 1개)·표(엑셀에서 복사한 '이름[탭]설명')를 붙여 넣으세요. 입력한 기능은 모두 '사용자' 요구로 보존되고, 빠진 기능·비기능 요구는 별도 '제안'으로 구분됩니다.</p>
+        <EditArea>
         <textarea rows={6} value={text} onChange={(e) => setText(e.target.value)} placeholder={"예)\n교육 신청: 직원이 신청기간 내 신청\n신청 취소\n과정별 통계"} aria-label="기능 입력" />
         <div className="row-actions">
-          <button className="primary" disabled={jr.running} onClick={() => jr.start(`${P(pid)}/ai/requirements`, { feature_text: text })}>
+          <ActionButton className="primary" disabled={jr.running} onClick={() => jr.start(`${P(pid)}/ai/requirements`, { feature_text: text })}>
             요구사항 초안 만들기
-          </button>
+          </ActionButton>
         </div>
+        </EditArea>
         <JobStatus job={jr.job} running={jr.running} onRetry={jr.retry} note={jr.note} />
       </Section>
       <Proposals kinds={["requirements", "answer"]} />
