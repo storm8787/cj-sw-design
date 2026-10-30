@@ -40,7 +40,7 @@ function check(cond, msg) {
     await page.getByText("무엇을 하시겠어요?").waitFor();
 
     // 1. 참고문서로 설계 프로젝트
-    await page.getByRole("button", { name: /참고문서로 설계/ }).click();
+    await page.getByRole("button", { name: "참고문서로 시작하기" }).click();
     await page.getByPlaceholder("예: 직원 교육 신청·관리 시스템 구축").fill("E2E 참고문서 재설계");
     await page.getByRole("button", { name: "만들기" }).click();
     await page.getByText("자료(문서) 올리기").waitFor();

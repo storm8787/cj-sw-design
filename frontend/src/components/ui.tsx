@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, type ButtonHTMLAttributes, type ReactNode } from "react";
+import { Dialog } from "./Frame";
 import { GLOSSARY, ORIGIN, STATUS } from "../labels";
 import type { ProjectResponse, SystemInfo } from "../types";
 
@@ -27,17 +28,17 @@ export function Help({ term }: { term: keyof typeof GLOSSARY }) {
   const g = GLOSSARY[term];
   return (
     <span className="help">
-      <button type="button" className="help-btn" aria-label={`${g.title} 설명`} onClick={() => setOpen(!open)}>
+      <button type="button" className="help-btn" aria-haspopup="dialog" aria-label={`${g.title} 설명`} onClick={() => setOpen(!open)}>
         ?
       </button>
       {open && (
-        <span className="help-pop" role="dialog">
+        <Dialog title={g.title} onClose={() => setOpen(false)}>
           <b>{g.title}</b>
           <br />
           {g.text}
           <br />
           <i>예: {g.example}</i>
-        </span>
+        </Dialog>
       )}
     </span>
   );

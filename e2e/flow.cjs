@@ -34,7 +34,7 @@ function check(cond, msg) {
     await shot("01-home");
 
     // 2. 새 설계 프로젝트 생성
-    await page.getByRole("button", { name: /새 설계/ }).click();
+    await page.getByRole("button", { name: "구상으로 시작하기" }).click();
     await page.getByPlaceholder("예: 직원 교육 신청·관리 시스템 구축").fill("E2E 교육 신청·관리");
     await page.getByPlaceholder("예: 교육 신청·관리 프로그램이 필요하다").fill("교육 신청·관리 프로그램이 필요하다");
     await page.getByRole("button", { name: "만들기" }).click();
@@ -72,7 +72,7 @@ function check(cond, msg) {
     // 표 직접 수정
     await page.locator("table.grid tbody tr").first().getByRole("button", { name: "수정" }).click();
     await page.getByLabel("검수 기준").first().fill("신청 결과가 목록에 즉시 표시됨");
-    await page.getByLabel("상태").first().selectOption("confirmed");
+    await page.getByLabel("상태", { exact: true }).first().selectOption("confirmed");
     await page.locator("tr.editing").getByRole("button", { name: "저장" }).click();
     await page.getByText("신청 결과가 목록에 즉시 표시됨").waitFor();
     check(true, "요구사항 표 직접 수정·확정");

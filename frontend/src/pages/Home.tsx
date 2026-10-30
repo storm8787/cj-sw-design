@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
+import { Dialog, Skeleton } from "../components/Frame";
 import { Field } from "../components/ui";
 import type { ProjectResponse, SystemInfo } from "../types";
 
@@ -16,22 +17,26 @@ interface ListItem {
 }
 
 const STARTS = [
-  { mode: "idea", title: "새 설계", desc: "\"교육 신청·관리 프로그램이 필요하다\"처럼 한 줄로 시작해 질문에 답하며 구체화합니다." },
-  { mode: "document", title: "참고문서로 설계", desc: "타 기관 과업지시서·제안요청서·FP 산정표를 올려 우리 기관에 맞게 고칩니다." },
-  { mode: "review", title: "기존 문서 검토", desc: "업체가 낸 과업·설계·FP·금액 문서를 서로 대조해 누락·오류를 찾습니다." },
+  { mode: "idea", title: "구상으로 시작하기", desc: "한 줄 구상을 질문에 답하며 구체화해요." },
+  { mode: "document", title: "참고문서로 시작하기", desc: "과업지시서·FP 산정표를 우리 사업에 맞춰요." },
+  { mode: "review", title: "기존 문서 검토하기", desc: "업체 문서의 누락과 금액 차이를 확인해요." },
 ];
 
 export default function Home({ system }: { system: SystemInfo }) {
   const [list, setList] = useState<ListItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [creating, setCreating] = useState(false);
   const [err, setErr] = useState("");
   const [form, setForm] = useState<{ mode: string; name: string; business_type: string; budget_mode: string; target: string; vat: boolean; idea: string } | null>(null);
 
-  const load = () => api.get<ListItem[]>("/api/projects").then(setList).catch((e) => setErr(e.message));
+  const load = () => api.get<ListItem[]>("/api/projects").then(setList).catch((e) => setErr(e.message)).finally(() => setLoading(false));
   useEffect(() => {
     load();
   }, []);
 
   const create = async (sample?: string) => {
+    if (creating) return;
+    setCreating(true);
     setErr("");
     try {
       const body = sample
@@ -51,7 +56,7 @@ export default function Home({ system }: { system: SystemInfo }) {
       location.hash = `#/p/${r.project.id}/${sample ? "overview" : form!.mode === "review" ? "review" : "sources"}`;
     } catch (e) {
       setErr((e as Error).message);
-    }
+    } finally { setCreating(false); }
   };
 
   const restore = async (f: File) => {
@@ -67,24 +72,20 @@ export default function Home({ system }: { system: SystemInfo }) {
 
   return (
     <div className="home">
-      <h2>무엇을 하시겠어요?</h2>
+      <div className="hero"><span className="eyebrow">사업 설계의 첫걸음</span><h1>무엇을 하시겠어요?</h1><p>지금 가진 자료에 맞춰 시작하세요. 나머지는 함께 정리해요.</p><a href="#continue">저장된 프로젝트 이어하기 ↓</a></div>
       {err && <div className="error">{err}</div>}
       <div className="starts">
         {STARTS.map((s) => (
           <button key={s.mode} className="start" onClick={() => setForm({ mode: s.mode, name: "", business_type: "system", budget_mode: "none", target: "", vat: true, idea: "" })}>
-            <b>{s.title}</b>
+            <span className="start-icon" aria-hidden="true">{s.mode === "idea" ? "01" : s.mode === "document" ? "02" : "03"}</span><b>{s.title} <span aria-hidden="true">↗</span></b>
             <span>{s.desc}</span>
           </button>
         ))}
-        <a className="start" href="#continue">
-          <b>프로젝트 이어하기</b>
-          <span>저장된 프로젝트를 열어 이어서 작업합니다.</span>
-        </a>
+
       </div>
 
       {form && (
-        <div className="card">
-          <h3>새 프로젝트 — {STARTS.find((s) => s.mode === form.mode)?.title}</h3>
+        <Dialog title={STARTS.find((s) => s.mode === form.mode)!.title} onClose={() => setForm(null)}><p className="muted">이름부터 정해 주세요. 세부 내용은 나중에 바꿀 수 있어요.</p>{err && <div role="alert" className="error">{err}</div>}
           <div className="form-grid">
             <Field label="사업(프로젝트) 이름">
               <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="예: 직원 교육 신청·관리 시스템 구축" />
@@ -121,12 +122,12 @@ export default function Home({ system }: { system: SystemInfo }) {
             )}
           </div>
           <div className="row-actions">
-            <button className="primary" disabled={!form.name.trim()} onClick={() => create()}>
-              만들기
+            <button className="primary" disabled={creating || !form.name.trim()} onClick={() => create()}>
+              {creating ? "만드는 중…" : "만들기"}
             </button>
             <button onClick={() => setForm(null)}>닫기</button>
           </div>
-        </div>
+        </Dialog>
       )}
 
       <div className="card" id="continue">
@@ -141,7 +142,8 @@ export default function Home({ system }: { system: SystemInfo }) {
             </label>
           </div>
         </div>
-        <table className="grid">
+        {loading && <Skeleton />}
+        <div className="table-wrap"><table className="grid">
           <thead>
             <tr>
               <th>이름</th>
@@ -167,7 +169,7 @@ export default function Home({ system }: { system: SystemInfo }) {
                 <td className="muted">{p.updated_at.replace("T", " ").slice(0, 16)}</td>
               </tr>
             ))}
-            {!list.length && (
+            {!loading && !list.length && (
               <tr>
                 <td colSpan={7} className="muted center">
                   저장된 프로젝트가 없습니다. 위에서 새로 시작하거나 샘플을 열어 보세요.
@@ -175,7 +177,7 @@ export default function Home({ system }: { system: SystemInfo }) {
               </tr>
             )}
           </tbody>
-        </table>
+        </table></div>
         <p className="muted small">
           {system.ai.is_real_ai ? "AI 모드: 질문·초안 생성 시 전송 범위를 확인한 뒤 외부 AI로 보냅니다." : "샘플 모드: AI 키가 없어 서버 규칙으로 질문·초안을 만듭니다(AI 분석 결과 아님). 계산·저장·엑셀은 모두 사용할 수 있습니다."}
         </p>
