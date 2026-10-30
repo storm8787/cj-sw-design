@@ -253,3 +253,8 @@ dialog::backdrop { background:#172c4c66; } .dialog-head { display:flex; align-it
 }
 @media(prefers-reduced-motion:reduce) { *,*::before,*::after { animation:none!important; transition:none!important; scroll-behavior:auto!important; } }
 .demo-card-title { width:100%; overflow-wrap:anywhere; }
+
+/* 첫 화면 '예제로 체험하기'(접힌 보조 영역 — 시작 카드보다 눈에 덜 띄게) */
+.examples summary { cursor: pointer; }
+.example-list { margin: 10px 0 0; padding-left: 18px; line-height: 1.9; }
+.example-list li + li { margin-top: 6px; }

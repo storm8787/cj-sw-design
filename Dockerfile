@@ -21,6 +21,7 @@ RUN --mount=type=secret,id=extra_ca,required=false \
     if [ -f /run/secrets/extra_ca ]; then cat /etc/ssl/certs/ca-certificates.crt /run/secrets/extra_ca > /tmp/ca.pem; export PIP_CERT=/tmp/ca.pem SSL_CERT_FILE=/tmp/ca.pem; fi; \
     pip install --no-cache-dir uv==0.11.32 && uv sync --frozen --no-dev --no-install-project && rm -f /tmp/ca.pem
 COPY backend/app ./app
+COPY examples /app/examples
 COPY --from=web /web/dist /app/frontend/dist
 ENV FRONTEND_DIST=/app/frontend/dist DATA_DIR=/data APP_ENV=production PATH="/app/backend/.venv/bin:$PATH"
 RUN useradd --system --uid 10001 --user-group app && mkdir -p /data && chown app:app /data

@@ -1,136 +1,86 @@
 # 정보화 설계 도우미
 
-지방자치단체 공무원이 **신규 정보화사업(홈페이지·포털, 일반 SW·정보시스템 신규개발)**을 구상하거나 참고문서를 제시하면,
-질문으로 요구사항과 설계를 구체화하고 **FP(기능점수)·개발비·검토의견·엑셀 산출물**을 만들어 주는 웹앱입니다.
+정보화 설계·FP(기능점수)를 잘 모르는 지방자치단체 공무원이 **업무를 설명하고 업무상 선택만 확인하면**,
+신규 정보화사업의 요구사항·설계를 정리하고 FP 근거·개발비·검토의견·엑셀 산출물까지 만들어 주는 웹앱입니다.
+AI는 질문·초안·분류 후보를 제안하고, FP 가중치·금액 계산과 검산은 검증된 Python 코드가 합니다.
 
-- **샘플 시연판(GitHub Pages)**: https://storm8787.github.io/cj-sw-design/ (2026-10-30 배포, `main` 변경 시 자동 재배포). 안내: [`docs/DEMO.md`](docs/DEMO.md)
-- 실제 앱 접속 주소: **미배포**. 테스트 배포 준비 완료 — Render 1대 + 영속 디스크 추천안과 절차는 [`docs/DEPLOY.md`](docs/DEPLOY.md), 배포 후 사용자 테스트 순서는 [`docs/USER_TEST.md`](docs/USER_TEST.md). 배포 서비스 가입·결제·비밀값 입력은 사용자가 직접 합니다.
-- 상태·다음 작업: [`docs/HANDOFF.md`](docs/HANDOFF.md) · 요구사항: [`docs/PROJECT_SPEC.md`](docs/PROJECT_SPEC.md) · FP 기준: [`docs/FP_RULES.md`](docs/FP_RULES.md)
+**▶ 실제 앱: https://sw-design-helper.onrender.com** (관리자 로그인 필요) · **▶ 설치 없이 둘러보기(읽기 전용): https://storm8787.github.io/cj-sw-design/**
 
-## 실제 앱과 샘플 시연판
+## 시작 방법 세 가지
+| | 실제 앱 | 읽기 전용 시연판 | 내 PC에서 실행 |
+|---|---|---|---|
+| 주소 | https://sw-design-helper.onrender.com | https://storm8787.github.io/cj-sw-design/ | http://localhost:8000 |
+| 로그인 | **관리자 비밀번호**(평가용 접속 정보는 별도 전달 — 저장소에 쓰지 않음) | 없음 | 직접 정한 관리자 비밀번호 |
+| 할 수 있는 것 | 프로젝트 만들기·저장, 문서 올리기·추출, AI(또는 샘플 규칙) 질문·초안, FP·개발비 계산, 검토, 엑셀 내려받기 | 미리 만든 가상 샘플 2종의 화면·엑셀 열람, 예제 파일 내려받기 | 실제 앱과 같음(AI 키가 없으면 '샘플 모드' 규칙) |
+| 할 수 없는 것 | — | 저장·업로드·AI 실행·로그인 | — |
+| 준비물 | 브라우저 | 브라우저 | Docker(권장) — [아래](#내-pc에서-실행하기) |
 
-| | 실제 앱(서버 — Render 등 배포 예정) | 샘플 시연판(GitHub Pages) |
-|---|---|---|
-| 목적 | 실제 사업을 설계하고 산출물을 만든다 | 가상 샘플로 화면 흐름과 결과물을 둘러본다 |
-| 로그인 | 관리자 비밀번호 | 없음 |
-| 데이터 | 프로젝트 생성·편집·저장·이어하기 | 미리 만든 가상 샘플 2종(구상 기반 완료 사례, 참고문서 기반 검토 필요 사례), 저장 안 함 |
-| AI·문서 | AI 연결(또는 서버 '샘플 모드' 규칙)로 질문·초안 생성, 문서 업로드·추출 | AI 호출·업로드·분석 없음(미리 만든 결과 표시) |
-| FP·개발비·엑셀 | 입력할 때마다 계산·생성 | 서버 계산 엔진·엑셀 생성기로 미리 만든 값·샘플 파일 |
-| 실행 | Python 서버 필요(`docker run …`) | 정적 파일만(`npm run build:demo`) |
+- 실제 앱은 운영자가 Render에 배포한 서버입니다(`render.yaml` 기준 서버 1대 + 영속 디스크). 현재 운영 설정(AI 모델·키 유무)은 저장소에서 알 수 없어, 화면 상단 AI 표시로 확인하는 방법을 [평가자 안내](docs/EVALUATOR_GUIDE.md)에 적었습니다.
+- 시연판은 실제 앱과 같은 화면 코드를 읽기 전용으로 씁니다. AI를 부르지 않으며, 보이는 결과는 서버 '샘플 규칙'으로 미리 만든 것입니다.
 
-시연판은 실제 앱과 같은 화면 코드를 읽기 전용으로 쓰며, 빌드할 때만 선택됩니다(일반 앱에서 주소로 켤 수 없음). 자세히: [`docs/DEMO.md`](docs/DEMO.md)
+## 무엇을 넣으면 무엇이 나오나
+| 넣는 것 | 나오는 것 |
+|---|---|
+| 한 줄 구상(예: "교육 신청·관리 프로그램이 필요하다") + 업무 질문에 대한 답 | 요구사항(사용자가 쓴 기능은 그대로 보존, 추가 제안은 구분), 기능·화면·데이터·연계 설계 초안 |
+| 타 기관 과업지시서(TXT·MD·PDF·HWPX·DOCX·XLSX) | 원문 문장·줄 위치가 남은 항목, 예산·기간·특정 제품 같은 타 기관 고유 조건 표시, 유지·수정·제외 결정과 이유 |
+| FP 후보마다 '우리 사업에 있음/없음/모름' | 간이법·정통법 FP와 산정 상태(미산정·부분·추정·확정), 근거 목록에서 코드가 센 DET·FTR/RET |
+| 산정 조건(보정계수·이윤·직접경비) + (선택) 목표예산 | 기준 산정 견적 버전, 기능을 줄이지 않는 별도 목표예산 참고 시나리오 |
+| 업체 과업지시서·설계서·FP 산정표·금액 산출서 | 요구사항 ID 누락, FP 가중치·중복·합계, 단가·산식·부가세·총액 차이, 범위 불명확 문장 |
+| — | 엑셀 산출물(산정 요약·개발비 산정표·FP 상세·요구사항·설계·검토·근거·검산, A4 인쇄 서식) |
+
+## 예제로 체험하기
+첫 화면의 **예제로 체험하기**를 펼치거나, 저장소 [`examples/`](examples/README.md)의 같은 파일을 쓰세요. 모두 가상 자료이며, 누르기만으로는 AI를 호출하지 않습니다.
+
+1. **구상으로 시작하기** — '예제 값으로 시작'을 누르면 만들기 창에 사업명·구상·목표예산이 채워집니다 → **만들기** → **2 자료·질문**에서 **질문 받기** → **3 요구사항**에 [입력 예시](examples/A-idea/idea_example.md)의 기능 일곱 줄 붙여 넣기 → **4 설계** → **5 FP·개발비**에서 업무 확인 후 **기준 산정 실행·저장** → **7 엑셀**. 미리 채운 결과만 보려면 '완성 예시 열기'.
+2. **참고문서로 시작하기** — [가상 타 기관 과업지시서](examples/B-reference/reference_task_order.txt)를 받아 **2 자료·질문**에 '참고문서(타 기관)'로 올리고 **항목 추출** → 항목마다 유지·수정·제외.
+3. **기존 문서 검토하기** — [가상 업체 문서 4종](examples/C-review/)을 **2 자료·질문**에 종류별로 올리고 **6 검토·추천**에서 **검토 실행** → [기대 확인 목록](examples/C-review/expected_findings.md)과 비교.
+
+자세한 할 일·기대 결과·확인할 점: [평가자 체험 순서](docs/EVALUATOR_GUIDE.md)
 
 ## 주요 기능
-- **시작 4종**: 새 설계(한 줄 구상) / 참고문서로 설계 / 기존 문서 검토 / 프로젝트 이어하기, 샘플 프로젝트 2종
-- **질문으로 구체화**: 사업 목적에 맞는 질문을 몇 개씩, 선택지·직접 입력·모름(권장안을 가정으로 기록)·나중에 결정
-- **요구사항·설계 작업대**: 요구사항, 업무흐름, 기능설계, 화면, 데이터, 연계, 검수 기준, 과업지시서 초안 — 표에서 직접 수정
-- **참고문서 재설계**: PDF·HWPX·DOCX·XLSX·TXT·MD 추출(원문 위치 보존), 항목별 유지/수정/제외, 타 기관 예산·기간·개인정보·제품 조건 표시
-- **FP 산정**: 간이법·정통법(서로 다른 계산). 설계·FP 비전문가는 후보마다 **업무 확인(있음/없음/모름)**만 하면 간이법 추정 산정이 되고, 정통법 DET·FTR/RET는 기능·데이터 항목 목록에서 코드가 셉니다. 산정 상태(미산정·부분·추정·확정), 중복 의심·경계 밖·요구사항 연결·확인 목록 표시, 용어 설명
-- **개발비**: 기준 산정 버전(당시 기준 보존) + 목표예산 시나리오(기능 유지, 조정률·환산값·끝수조정 공개)
-- **기존 문서 검토**: 요구사항 ID 누락, FP 가중치·중복·합계, 산식·VAT·총액, 불명확 범위, 문서로 확정 불가 항목
-- **HW·SW 구성 추천**: 자체 서버 가정 기반 구성안 / 클라우드 서비스 구성(사양 미제시), 공식 출처·확인일 관리
-- **엑셀 산출물**: 산출내역서처럼 읽고 인쇄하는 업무용 서식(첫 시트 산정 요약, 개발비 산정표, FP 다단 머리글, A4·머리행 반복·쪽번호) 13개 시트 + 검산 시트(수식 값 = Python 계산값 확인), 화면 미리보기, JSON 백업·복원 — `docs/EXCEL_FORMAT.md`
-- **AI(여러 공급자 교체 가능)**: OpenAI(ChatGPT, 기본)·Anthropic(Claude)·OpenAI 호환 상용/사내 LLM을 동시에 설정하고 프로젝트마다 선택. 키가 없으면 **샘플 모드**(서버 규칙, AI 아님)로 전체 흐름 사용 가능. AI 결과는 '변경안'으로만 제시되어 사용자가 골라 적용
+- **업무 질문으로 구체화** — 선택지·직접 입력·'모름'(권장안을 가정으로 기록)·'나중에 결정'. DET·EI 같은 전문용어로 묻지 않습니다.
+- **요구사항·설계 작업대** — 요구사항, 업무흐름, 기능·화면·데이터·연계, 검수 기준, 과업지시서 초안을 표에서 직접 수정. 모든 항목은 고유 ID(REQ-001, FN-001…)로 연결.
+- **참고문서 재설계** — 원문·위치 보존, 타 기관 고유 조건 표시, 문서 속 지시문은 분석 대상으로만 취급.
+- **비전문가용 FP 산정** — 후보마다 업무 확인만 하면 간이법 '추정 산정'. 전문가 검토(확정)와 구분, 0건이면 금액을 만들지 않음.
+- **개발비** — 기준 산정(당시 기준 보존)과 목표예산 참고 시나리오를 분리. 금액은 Decimal 계산, 끝수 규칙 기록.
+- **기존 문서 검토** — 규칙 기반 대조(실제 성능·연계·보안 충족은 문서로 확정하지 않음).
+- **엑셀** — 산출내역서형 인쇄 서식, 수식 값과 Python 값을 비교하는 검산 시트. 검산 '일치'는 계산이 맞다는 뜻이며 설계 타당성 보증은 아닙니다.
+- **AI 교체 가능** — OpenAI(기본)·Anthropic·OpenAI 호환 상용/사내 LLM을 설정으로 교체, 키가 없으면 샘플 모드(규칙 기반).
 
-## 사용 순서
-1 개요(목적·경계·금액 조건) → 2 자료·질문 → 3 요구사항 → 4 설계 → 5 FP·개발비 → 6 검토·추천 → 7 엑셀. 언제든 이전 단계로 돌아갈 수 있고 모든 변경은 즉시 저장됩니다.
+## 내 PC에서 실행하기
+가장 재현하기 쉬운 방법은 **Docker** 하나입니다(Windows·macOS는 Docker Desktop, Linux는 Docker Engine). 저장소 폴더에서:
 
-## 구조
-React + TypeScript 화면(`frontend/`) + Python FastAPI 서버(`backend/`) + SQLite·파일 저장(`DATA_DIR`).
-**GitHub는 코드 보관 장소일 뿐이며, 실행하려면 Python 서버가 필요합니다(GitHub Pages만으로는 동작하지 않음).** 자세한 구성: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
+1. `.env.example`을 복사해 `.env`를 만들고 두 칸을 채웁니다: `SECRET_KEY`(32자 이상 무작위 문자열), `ADMIN_PASSWORD`(10자 이상, 로그인 비밀번호). 나머지는 그대로 둡니다(AI 키가 없으면 샘플 모드).
+2. 이미지 만들기(처음 한 번, 수 분):
+   ```bash
+   docker build -t sw-design-helper .
+   ```
+3. 실행(데이터는 `swdata` 볼륨에 저장되어 다시 실행해도 유지):
+   ```bash
+   docker run -d -p 8000:8000 -v swdata:/data --env-file .env --name sw-design-helper sw-design-helper
+   ```
+4. 브라우저에서 http://localhost:8000 → 관리자 비밀번호로 로그인. 끄기: `docker stop sw-design-helper`, 다시 켜기: `docker start sw-design-helper`.
 
-## 설치·실행 (2026-10-30 확인)
-필요: Python 3.12+와 [uv](https://docs.astral.sh/uv/), Node.js 22
+- 위 명령은 Windows PowerShell·macOS·Linux에서 같습니다(줄바꿈 없이 한 줄). `.env`는 Docker가 `--env-file`로 읽습니다. 앱이 `.env`를 직접 읽지는 않습니다.
+- 로컬은 http이므로 `COOKIE_SECURE=false`(기본값)를 유지하세요. https로 운영할 때만 `true`. 인증을 끄는 설정(`AUTH_DISABLED`)은 개발 모드 전용이며 운영에서는 허용되지 않습니다.
+- Docker 없이 Python·Node로 직접 실행하는 방법, 사내 프록시 망에서 빌드하는 방법: [구동안내서 2절](docs/RUN_GUIDE.md#2-설치실행-절차)
 
-```bash
-cd backend && uv sync
-```
+## AI 연결·비용·외부 전송
+- AI 키가 없으면 **샘플 모드**(서버 규칙, AI 아님)로 모든 단계를 쓸 수 있습니다. 화면·엑셀에 '샘플 모드'로 표시됩니다.
+- AI를 쓰려면 `.env`(Docker) 또는 배포 환경변수에 키와 모델을 넣습니다. 권장 구성(2026-10-30 가상 사례 비교시험 통과): `OPENAI_MODEL=gpt-6-luna`, FP 후보만 `OPENAI_MODEL_FP_CANDIDATES=gpt-6.1-sol` — 근거와 한계: [AI_COST](docs/AI_COST.md).
+- 외부 AI로 보내기 전에는 **매번 전송 범위를 보여 주고 동의**를 받습니다. 업로드만으로는 원문이 전송되지 않습니다. 실제 사업 문서·개인정보는 테스트 서버에 올리지 마세요.
+- AI 사용료는 쓴 만큼 나갑니다. 공급자 결제 화면에서 월 한도를 설정하세요. 실제 호출을 확인한 공급자는 OpenAI뿐이고, Anthropic·사내 LLM은 연결 코드와 모의 시험만 있습니다.
 
-```bash
-cd frontend && npm ci && npm run build
-```
+## 구현 범위와 알려진 제약
+- 범위: 홈페이지·포털 신규개발, 일반 SW·정보시스템 신규개발. 유지관리·장비·ITS/BIS·RFID·단독 DB 구축·컨설팅은 후속.
+- FP 단가·보정계수는 2026 산정양식 수식에서 추출했고 KOSA 가이드 원문은 **미확인**입니다. 이윤율·끝수·단계 비율은 '확인 필요'로 표시됩니다([FP_RULES](docs/FP_RULES.md)).
+- 이 도구는 설계·산정 **초안과 근거 정리**를 돕습니다. 공식 FP 감정이나 법적 적합성을 보증하지 않습니다.
+- 단일 관리자 로그인(다중 사용자·권한 없음), HWP는 실험적, 스캔 PDF OCR 없음, 엑셀은 LibreOffice로 검산·인쇄를 확인했고 Microsoft Excel 화면은 미확인.
 
-```bash
-cd backend && APP_ENV=development AUTH_DISABLED=true uv run uvicorn app.main:create_app --factory --port 8000
-```
-
-브라우저에서 http://localhost:8000 (빌드된 화면을 서버가 함께 제공). 화면 개발 중에는 `cd frontend && npm run dev`(http://localhost:5173, API는 8000으로 프록시).
-
-운영 모드(인증 사용)는 `.env.example`을 `.env`로 복사해 `SECRET_KEY`와 `ADMIN_PASSWORD_HASH`(또는 `ADMIN_PASSWORD`)를 채운 뒤 실행합니다. 비밀번호 해시 생성:
-
-```bash
-cd backend && uv run python -m app.auth hash
-```
-
-## 테스트
-```bash
-cd backend && uv run pytest -q
-```
-
-```bash
-cd frontend && npm run typecheck && npm run build
-```
-
-```bash
-E2E_PASSWORD=<관리자 비밀번호> node e2e/flow.cjs
-```
-
-```bash
-E2E_PASSWORD=<관리자 비밀번호> node e2e/reference.cjs
-```
-(E2E는 서버를 운영 모드로 띄운 뒤 실행. `flow.cjs`는 구상 기반, `reference.cjs`는 참고문서 기반 흐름. 다른 주소는 `BASE_URL`, 자체서명 HTTPS는 `E2E_IGNORE_HTTPS_ERRORS=1`. Playwright가 없으면 `cd e2e && npm ci && npx playwright install chromium`)
-
-## 샘플 시연판 빌드(서버 불필요)
-```bash
-cd frontend && npm run demo:data
-```
-
-```bash
-cd frontend && npm run build:demo
-```
-
-```bash
-node e2e/demo.cjs
-```
-(`demo:data`는 Python으로 샘플을 생성·검증 — 빌드 단계 전용. 결과 `frontend/dist-demo/`는 `/cj-sw-design/` 경로용 정적 파일. 배포는 `.github/workflows/pages.yml`)
-
-## Docker 단일 서버 배포
-```bash
-docker build -t sw-design-helper .
-```
-
-```bash
-docker run -d -p 8000:8000 -v swdata:/data --env-file .env --name sw-design-helper sw-design-helper
-```
-- DB·업로드·사용자 정의 기준은 `/data` 볼륨에 영속 저장되어 컨테이너를 바꿔도 유지됩니다. 배포 서비스 디스크가 root 소유로 붙어도 시작 시 소유자를 맞추고 비루트(`app`)로 실행합니다.
-- 포트는 `PORT` 환경변수를 따릅니다(없으면 8000).
-- HTTPS는 배포 서비스나 기관 리버스 프록시에서 처리하고 `COOKIE_SECURE=true`로 설정하세요.
-- 클라우드 테스트 배포(Render, `render.yaml`): [`docs/DEPLOY.md`](docs/DEPLOY.md)
-- SSL 검사 프록시가 있는 망에서 빌드할 때: `docker build --secret id=extra_ca,src=/path/사내루트인증서.pem -t sw-design-helper .`
-
-## 환경변수
-`.env.example` 참고. 주요 항목: `APP_ENV`, `DATA_DIR`, `SECRET_KEY`, `ADMIN_PASSWORD_HASH`/`ADMIN_PASSWORD`, `COOKIE_SECURE`, `AUTH_DISABLED`(개발 전용), `MAX_UPLOAD_MB`, `OFFICIAL_SOURCE_ALLOWLIST`.
-
-### AI 연결
-| 연결 | 켜는 방법 | 비고 |
-|---|---|---|
-| OpenAI(ChatGPT) — 기본 | `OPENAI_API_KEY`, `OPENAI_MODEL`, (선택) `OPENAI_MODEL_<작업>` | 2026-10-30 비교시험을 통과한 권장 구성: `OPENAI_MODEL=gpt-6-luna` + `OPENAI_MODEL_FP_CANDIDATES=gpt-6.1-sol`(근거·한계 `docs/AI_COST.md`). 구조화 출력(JSON 스키마) 사용. 작업마다 실제 호출 모델·토큰을 작업 상태에 표시. `OPENAI_BASE_URL`로 프록시·Azure OpenAI v1 주소 지정 가능 |
-| Anthropic(Claude) | `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL` | 구조화 출력 사용. 실제 호출 미검증 |
-| OpenAI 호환 상용·사내 LLM | `LLM_BASE_URL`, `LLM_MODEL`, (`LLM_API_KEY`, `LLM_LABEL`, `LLM_JSON_MODE`, `LLM_EXTERNAL`) | 구조화 출력 미지원 서버는 `LLM_JSON_MODE=prompt`. 기관 내부 설치면 `LLM_EXTERNAL=false`. 실제 호출 미검증 |
-| 샘플 모드 | 항상 사용 가능 | AI 아님(규칙 기반), 외부 전송 없음 |
-
-- `AI_PROVIDER`로 서버 기본 연결을 정하고(비우면 OpenAI 키가 있을 때 openai, 없으면 sample), 각 프로젝트의 '개요 → AI 연결'에서 다른 연결을 고를 수 있습니다.
-- 모든 AI 응답은 공급자와 관계없이 같은 검증(JSON·스키마·없는 ID·사용자 기능 누락·과도한 응답)을 거쳐 '변경안'으로만 들어옵니다.
-- AI API는 쓴 만큼 요금이 나갑니다. 각 서비스의 결제 화면에서 월 지출 한도를 꼭 설정하세요.
-- 새 공급자를 추가하려면 `backend/app/ai/provider.py`에 `generate_json()` 하나를 구현하고 `config.load_ai_profiles()`에 설정을 추가하면 됩니다.
-
-## 제약
-- FP·개발비 기준값은 2026 산정양식 패키지의 양식 수식에서 추출했습니다. KOSA 가이드 원문(2025 개정판)은 이 작업 환경에서 접속이 막혀 **미확인**이며, 이윤율·끝수·단계별 비율은 확인 필요로 표시됩니다(`docs/FP_RULES.md`).
-- 실제 AI 호출은 OpenAI로만 검증했습니다(2026-10-30 `gpt-6.1-sol`·`gpt-6.1-terra`·`gpt-6-luna` 가상 3사례 비교시험, `docs/AI_COST.md`). 그 이전 기록:(2026-10-29 다섯 작업, 2026-10-30 배포 설정에서 질문·문서 추출). Anthropic·사내/상용 LLM은 가짜 전송 계층으로만 시험했습니다. HWP는 실험적 지원이며 HWPX/PDF 변환을 권장합니다. 스캔 PDF는 OCR을 하지 않습니다.
-- 장비 구매비는 개발비에 포함하지 않습니다. 유료 SW·클라우드 비용은 '별도 비용'으로만 표시합니다.
-- 단일 관리자용 MVP입니다(다중 사용자·권한 분리는 후속).
-- 연간 유지관리, 장비 유지관리, ITS/BIS, RFID, 단독 DB·공간정보 구축, 컨설팅은 후속 확장 범위입니다.
-
-## UI·UX 개발
-공통 디자인: [DESIGN_SYSTEM](docs/DESIGN_SYSTEM.md). Codex는 [AGENTS.md](AGENTS.md)에서 안내하는 문서를 직접 읽는다.
-반응형·시트·필터·저장 UX 검사는 두 빌드와 샘플 생성 후 인증 서버에서 `E2E_PASSWORD=… BASE_URL=http://127.0.0.1:8000 node e2e/ux.cjs`로 실행한다. 유료 AI 키 없이 샘플 모드로 검증한다.
+## 문서
+| 대상 | 문서 |
+|---|---|
+| 평가자 | [평가자 체험 순서](docs/EVALUATOR_GUIDE.md) · [구동안내서 초안(양식 2-1)](docs/RUN_GUIDE.md) · [제출 체크리스트·시연영상 구성](docs/SUBMISSION.md) · [모의데이터](examples/README.md) |
+| 사용자 | [배포 후 사용자 테스트](docs/USER_TEST.md) · [시연판](docs/DEMO.md) · [엑셀 서식](docs/EXCEL_FORMAT.md) |
+| 운영·개발 | [배포(Render)](docs/DEPLOY.md) · [개발·테스트·환경변수](docs/DEVELOPMENT.md) · [구조](docs/ARCHITECTURE.md) · [FP 기준](docs/FP_RULES.md) · [AI 비용·모델](docs/AI_COST.md) · [외부 구성요소·라이선스](docs/THIRD_PARTY.md) |
+| 진행 기록 | [인수인계](docs/HANDOFF.md) · [검증 기록](docs/VALIDATION.md) · [결정 기록](docs/DECISIONS.md) · [요구사항](docs/PROJECT_SPEC.md) · 공통 작업 기준 [agent.md](agent.md) |

@@ -19,7 +19,7 @@ from .fp import estimates as est
 from .main import AppCtx
 from .models import COLLECTIONS, CostSettings, DocumentMeta, Extraction, Overview, ReferenceItem, TaskDraft, TechInputs
 from .review.review import run_review
-from .services import backup, overview_suggest, proposals, samples, status, taskdraft
+from .services import backup, examples, overview_suggest, proposals, samples, status, taskdraft
 from .store import InvalidData, NotFound, add_item, delete_item, find_item, next_id, now, update_item
 from .tech import fetch as tfetch
 from .tech import recommend as trec
@@ -763,3 +763,20 @@ async def restore(request: Request, file: UploadFile = File(...)):
     raw = await file.read(backup.MAX_BYTES + 1)
     p = backup.restore_project(c.store, raw)
     return ok_project(c, p.id)
+
+
+# ---------------------------------------------------------------- 모의데이터(예제) 파일
+@router.get("/examples")
+def example_list():
+    return {"files": examples.listing()}
+
+
+@router.get("/examples/{name:path}")
+def example_file(name: str):
+    """저장소 examples/의 가상 예제 파일. 내려받기만 하며 프로젝트를 만들거나 AI를 호출하지 않는다."""
+    hit = examples.read(name)
+    if hit is None:
+        raise NotFound("예제 파일이 없습니다.")
+    data, ctype = hit
+    fname = name.rsplit("/", 1)[-1]
+    return Response(content=data, media_type=ctype, headers={"Content-Disposition": f"attachment; filename=\"{fname}\""})

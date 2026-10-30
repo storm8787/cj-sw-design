@@ -1,15 +1,25 @@
-# HANDOFF — 인수인계 (최종 갱신 2026-10-30, D-023·D-024)
+# HANDOFF — 인수인계 (최종 갱신 2026-10-30, D-025)
 
 ## 1. 현재 위치
-- 저장소: `storm8787/cj-sw-design`(Public) · 작업 브랜치: `claude/kind-franklin-pjcpsr`(PR #6 병합 후 최신 main에서 다시 시작)
-- PR #1~#6 모두 `main`에 병합. 이번 작업(D-023 AI 비용·모델, D-024 엑셀 서식)은 새 PR — **main 병합 전**.
+- 저장소: `storm8787/cj-sw-design`(Public) · 작업 브랜치: `claude/kind-franklin-pjcpsr`(PR #7 병합 후 최신 main에서 다시 시작)
+- PR #1~#7 모두 `main`에 병합. 이번 작업(D-025 README·평가자 안내·예제 체험)은 새 PR — **main 병합 전**.
 - 배포 상태:
-  - 실제 앱: 사용자가 Render(`https://sw-design-helper.onrender.com`)에 배포. 이번 변경은 아직 배포되지 않았다.
-    - **모델 전환은 코드·render.yaml 기본값만 바꿨다.** 기존 Render 서비스의 `OPENAI_MODEL` 환경변수는 사용자가 바꿔야 할 수 있다(`docs/AI_COST.md` §7). 작업 세션은 운영 환경에 접근하지 않았다.
-  - 샘플 시연판: `https://storm8787.github.io/cj-sw-design/`(main 병합 시 자동 재배포). 샘플 엑셀도 새 서식으로 생성된다.
-- 대상 사용자: **설계·FP 비전문가 공무원**.
+  - 실제 앱: 사용자가 Render(`https://sw-design-helper.onrender.com`)에 배포해 운영 중(사용자 전달). main 병합 시 Render가 자동 재배포한다. 이번 작업 환경에서는 이 주소에 접속할 수 없어 직접 확인하지 못했다.
+    - 권장 모델 구성(`OPENAI_MODEL=gpt-6-luna`, `OPENAI_MODEL_FP_CANDIDATES=gpt-6.1-sol`)이 기존 Render 서비스에 적용되었는지는 **미확인**. 화면 오른쪽 위 AI 표시로 확인한다(`docs/AI_COST.md` §7).
+  - 샘플 시연판: `https://storm8787.github.io/cj-sw-design/`(main 병합 시 자동 재배포). 이번 작업 환경에서 접속 확인은 못 했다.
+- 대상 사용자: **설계·FP 비전문가 공무원**. 제출 대상: 2026 공공 AI 대전환 챌린지 세션 1(`docs/SUBMISSION.md`, 마감 2026-11-11).
 
-### 이번 작업(2026-10-30, D-023·D-024)
+### 이번 작업(2026-10-30, D-025) — 처음 보는 평가자·사용자가 이해하고 실행할 수 있게
+| 작업 | 결과 | 근거 |
+|---|---|---|
+| README 재구성 | 소개·실제 앱/시연판/내 PC 비교·입력→출력·예제·Docker 실행·AI 비용·제약·문서 표. 개발 세부는 `docs/DEVELOPMENT.md`로 이동(삭제 없음) | README.md |
+| 예제로 체험하기 | 첫 화면 접힌 영역에 예제 A(구상)·B(참고문서)·C(기존 문서 검토). 원본은 `examples/`, 서버는 허용 목록 파일만 `/api/examples/`로 제공, 시연판은 정적 파일. 누르기만으로 프로젝트·AI 호출 없음 | `examples/README.md`, `e2e/examples.cjs` |
+| 평가자 문서 | 구동안내서 초안([양식 2-1] 7항목), 평가자 체험 순서, 제출 체크리스트·시연영상 구성(촬영 전)·평가 항목별 근거/한계, 외부 구성요소·라이선스 | `docs/RUN_GUIDE.md`, `EVALUATOR_GUIDE.md`, `SUBMISSION.md`, `THIRD_PARTY.md` |
+| 실행 경로 버그 | `.env.example`의 `DATA_DIR=./data`가 Docker `--env-file`에서 이미지 기본 `/data`를 덮어 볼륨 밖에 저장되던 문제 → 주석 처리 | `.env.example`, VALIDATION §10 |
+
+참가 안내 원문은 첨부되지 않아 다시 확인하지 못했다(사용자 요약 기준). 제출·메일 발송·GitLab 설정·자동배포 변경은 하지 않았다.
+
+### 이전 작업(2026-10-30, D-023·D-024, PR #7 병합)
 | 작업 | 결과 | 근거 |
 |---|---|---|
 | AI 사용량 측정 | 작업마다 입력·캐시·출력·추론 토큰·시간·실패 저장, 작업 상태에 호출 모델·토큰 표시. 작업 제출 때 모델·추론 설정 고정, 재사용 키에 모델 포함 | `backend/app/ai/usage.py`, `jobs.py` |
@@ -36,7 +46,7 @@
 
 | 구분 | 상태 | 비고 |
 |---|---|---|
-| 공통 구조 SPEC-01~09 | 완료 | Docker 이미지 빌드·실행·재배포 영속성 확인. 배포 서비스와 같은 설정(root 소유 디스크·PORT·HTTPS)으로 로컬 점검 완료. 외부 배포는 미실시(사용자 결정 대기) |
+| 공통 구조 SPEC-01~09 | 완료 | Docker 이미지 빌드·실행·재배포 영속성 확인. 배포 서비스와 같은 설정(root 소유 디스크·PORT·HTTPS)으로 로컬 점검 완료. Render 배포는 사용자가 진행(작업 환경에서 접속 확인 못 함) |
 | 핵심 데이터 SPEC-10~19 | 완료 | 고유 ID, 1:N 연결, 영향 표시, 견적 스냅샷, 변경안 적용 |
 | A 프로젝트 관리 | 완료 | 생성·목록·이름 변경·이어하기·삭제(이름 확인)·샘플 2종 |
 | B 구상 기반 설계 | 완료 | 질문 은행 26종(공통+목적별 트리거). 실제 AI 질문 생성은 OpenAI로 확인(VALIDATION §5-3) |
@@ -49,12 +59,13 @@
 | 엑셀 X1~X6 | 완료 | 12시트+검산, LibreOffice 재계산 일치 확인 |
 | 품질 Q1~Q12 | 완료 | 단일 관리자 인증, CSRF, 업로드 검증, SSRF 차단, 백업·복원, 작업 재사용·중단 표시 |
 | 여러 AI 연결(D-018) | 완료 | OpenAI 기본·Anthropic·OpenAI 호환 상용/사내 LLM·샘플을 동시에 설정, 프로젝트별 선택. OpenAI만 실제 호출 확인 |
-| 샘플 시연판(D-020) | 완료·배포됨 | 정적 빌드·샘플 2종(생성기·검증)·읽기 전용 화면·Pages 워크플로·시연 E2E. 실제 Pages 배포는 사용자 설정·병합 후 |
+| 샘플 시연판(D-020) | 완료·배포됨 | 정적 빌드·샘플 2종(생성기·검증)·읽기 전용 화면·Pages 워크플로·시연 E2E. main 병합 시 자동 재배포 |
+| 예제 체험·평가자 안내(D-025) | 완료 | 예제 3종(`examples/`), 첫 화면·시연판 진입, README·구동안내서 초안·평가자 순서·제출 체크리스트. 공식 양식 PDF·영상·GitLab 제출은 사용자 작업 |
 | 실제 AI 호출 | OpenAI 검증 / 그 외 **미검증** | 2026-10-30 `gpt-6.1-sol`·`gpt-6.1-terra`·`gpt-6-luna` 가상 3사례 비교(`docs/AI_COST.md`), 권장 구성 luna+FP 후보 sol. 이전: `gpt-6.1-sol` 다섯 작업(VALIDATION §5-3). Anthropic·사내/상용 LLM은 실제 호출 미검증 |
 | 엑셀 산출물 서식 | 완료 | 산출내역서형 서식·인쇄(2026-10-30). Microsoft Excel 화면·인쇄 미리보기는 미확인(LibreOffice로 확인) |
 
 ## 3. 테스트 결과 (상세: `docs/VALIDATION.md`)
-- 백엔드 pytest **127 passed**(2026-10-30, D-022 시나리오 A·B·C·리뷰 회귀 포함), 프런트 타입검사·일반 빌드·시연 빌드 성공, 로컬 운영 모드에서 `flow`·`reference`·`ux`·`demo` E2E 통과(VALIDATION §8).
+- 백엔드 pytest **138 passed**(2026-10-30, 예제 3건 포함), 프런트 타입검사·일반 빌드·시연 빌드 성공, 로컬 운영 모드에서 `flow`·`reference`·`ux`·`examples`·`demo` E2E 통과, README의 Docker 경로·소스 실행(bash)을 깨끗한 위치에서 재현(VALIDATION §10). PowerShell 명령은 실행하지 않았다(문법만).
 - 샘플 시연판(VALIDATION §5-5): 정적 서버만으로 `e2e/demo.cjs` 통과 — `/api`·외부·404·콘솔 오류 0건, 모바일·태블릿, 샘플 엑셀 재계산 검산 일치.
 - 배포 설정 로컬 점검(2026-10-30, VALIDATION §5-4): HTTPS 프록시 뒤 운영 모드 컨테이너에서 구상 기반(`e2e/flow.cjs`)·참고문서 기반(`e2e/reference.cjs`) 브라우저 E2E 통과, 컨테이너 교체 후 데이터 유지, 실제 OpenAI 질문·문서 추출 성공, 엑셀 다운로드, 로그에 비밀값·원문 없음.
 - GitHub Actions(`.github/workflows/ci.yml`): PR #3 최신 커밋(56998ac)에서 backend·frontend·e2e·docker 모두 성공. 이번 브랜치부터 e2e job이 참고문서 E2E도 실행.
@@ -72,10 +83,11 @@
 8. 샘플 시연판은 읽기 전용 정적 화면(새 계산·생성 없음). 샘플 데이터는 커밋하지 않고 빌드 때 `backend/tools/demo_data.py`로 생성하므로, 화면·모델·계산을 바꾼 뒤 `npm run demo:data`가 실패하면 생성기(`build_a`·`build_b`)를 함께 고쳐야 Pages 배포가 진행됨.
 
 ## 5. 다음 작업(우선순위)
+00. (사용자, 제출) `docs/SUBMISSION.md` 체크리스트: 참가신청서·구동안내서 PDF(`docs/RUN_GUIDE.md`를 공식 양식에 옮김)·시연영상(§4 구성안)·GitLab 비공개 저장소·Topics·심사위원 권한·로그인 정보 별도 전달. 제출 커밋 태그와 Render 배포 커밋 일치 확인(§3). 참가 안내 원문과 항목 재대조.
 0. (사용자) 이번 PR 검토·병합 → Render 환경변수 `OPENAI_MODEL=gpt-6-luna`, `OPENAI_MODEL_FP_CANDIDATES=gpt-6.1-sol` 확인·변경(`docs/AI_COST.md` §7) → 엑셀 내려받아 인쇄 미리보기 확인(Microsoft Excel) → OpenAI 사용량 화면에서 모델별 금액 확인.
 0-1. (이전) PR 검토·병합 → Render 자동 재배포 확인 → `docs/USER_TEST.md` §C(비전문가 흐름) 실행. 기존 프로젝트는 그대로 열리며(삭제·재설정 없음) 초안 FP는 '업무 확인 전'으로 보인다. 결과를 VALIDATION에 '배포 환경 확인'으로 기록.
 1. (사용자) 시연 주소 `https://storm8787.github.io/cj-sw-design/` 접속 확인(샘플 A·B, 단계 이동, 샘플 엑셀). 문제가 있으면 화면·문구를 알려 주면 수정 후 main 병합으로 재배포.
-2. (사용자) `docs/DEPLOY.md` §3대로 Render 배포(실제 앱, `render.yaml`은 main에 병합됨) → `docs/USER_TEST.md` A·B 순서로 직접 테스트 → 문제 기록을 다음 작업으로 반영. 배포 후 VALIDATION에 실제 배포 확인 결과 기록.
+2. (사용자, Render 배포는 완료) `docs/USER_TEST.md` A·B 순서와 첫 화면 '예제로 체험하기'로 직접 테스트 → 문제 기록을 다음 작업으로 반영. 배포 후 VALIDATION에 실제 배포 확인 결과 기록.
 3. 사내/상용 LLM 또는 Anthropic을 쓸 경우 `LLM_*`·`ANTHROPIC_*`로 VALIDATION §5-3과 같은 절차(다섯 작업 각 1회) 실행. 설계 작업은 출력이 길어 1~2분 걸림(기본 시간 제한 600초).
 4. sw.or.kr 접근 가능한 환경에서 가이드 2025 개정판 확인 → 차이가 있으면 새 기준 JSON 추가(기존 파일 수정 금지, 과거 견적 보존).
 5. 실제 HWP 샘플로 추출 검증, 필요 시 변환 도구 연동 검토.

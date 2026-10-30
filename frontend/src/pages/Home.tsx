@@ -16,6 +16,8 @@ interface ListItem {
   estimates: number;
 }
 
+const EX = "/api/examples/"; // 저장소 examples/와 같은 원본(로그인 후 내려받기)
+
 const STARTS = [
   { mode: "idea", title: "구상으로 시작하기", desc: "한 줄 구상을 질문에 답하며 구체화해요." },
   { mode: "document", title: "참고문서로 시작하기", desc: "과업지시서·FP 산정표를 우리 사업에 맞춰요." },
@@ -27,7 +29,7 @@ export default function Home({ system }: { system: SystemInfo }) {
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [err, setErr] = useState("");
-  const [form, setForm] = useState<{ mode: string; name: string; business_type: string; budget_mode: string; target: string; vat: boolean; idea: string } | null>(null);
+  const [form, setForm] = useState<{ mode: string; name: string; business_type: string; budget_mode: string; target: string; vat: boolean; idea: string; example?: boolean } | null>(null);
 
   const load = () => api.get<ListItem[]>("/api/projects").then(setList).catch((e) => setErr(e.message)).finally(() => setLoading(false));
   useEffect(() => {
@@ -59,6 +61,11 @@ export default function Home({ system }: { system: SystemInfo }) {
     } finally { setCreating(false); }
   };
 
+  // 예제 A: 만들기 창에 예시 값만 채운다(누르기만으로 프로젝트·AI 호출이 생기지 않음)
+  const startExampleA = () =>
+    setForm({ mode: "idea", name: "[예제] 직원 교육 신청·관리 시스템 구축", business_type: "system", budget_mode: "target", target: "80,000,000", vat: true, example: true,
+      idea: "직원 교육 신청·관리 프로그램이 필요하다. 신청·취소·승인과 정원 초과 시 대기자 관리, 이수 통계가 필요하다." });
+
   const restore = async (f: File) => {
     const fd = new FormData();
     fd.append("file", f);
@@ -84,8 +91,45 @@ export default function Home({ system }: { system: SystemInfo }) {
 
       </div>
 
+      <details className="card examples" id="examples">
+        <summary>
+          <b>예제로 체험하기</b> <span className="muted small">가상 자료 · 누르기만으로는 AI를 호출하지 않아요</span>
+        </summary>
+        <ul className="example-list">
+          <li>
+            <b>01 구상</b> <span className="muted small">입력부터 체험:</span>{" "}
+            <button className="link" onClick={startExampleA}>예제 값으로 시작</button>
+            {" · "}
+            <a href={`${EX}A-idea/idea_example.md`} download>입력 예시 받기</a>
+            <br />
+            <span className="muted small">미리 채운 완성 예시(샘플 규칙으로 만든 새 프로젝트, AI 결과 아님):</span>{" "}
+            <button className="link" disabled={creating} onClick={() => create("education")}>교육 신청·관리</button>
+            {" · "}
+            <button className="link" disabled={creating} onClick={() => create("complaint")}>민원·배치 연계</button>
+          </li>
+          <li>
+            <b>02 참고문서</b> <a href={`${EX}B-reference/reference_task_order.txt`} download>가상 타 기관 과업지시서 받기</a>
+            <span className="muted small"> → '참고문서로 시작하기'로 만든 뒤 '2 자료·질문'에서 올리고 항목 추출</span>
+          </li>
+          <li>
+            <b>03 검토</b> <span className="muted small">가상 업체 문서:</span>{" "}
+            <a href={`${EX}C-review/vendor_task.txt`} download>과업지시서</a>
+            {" · "}
+            <a href={`${EX}C-review/vendor_design.txt`} download>설계서</a>
+            {" · "}
+            <a href={`${EX}C-review/vendor_fp.xlsx`} download>FP 산정표</a>
+            {" · "}
+            <a href={`${EX}C-review/vendor_cost.txt`} download>금액 산출서</a>
+            {" · "}
+            <a href={`${EX}C-review/expected_findings.md`} download>기대 확인 목록</a>
+            <span className="muted small"> → '기존 문서 검토하기' → '2 자료·질문'에서 종류별로 올리기 → '6 검토·추천'에서 검토 실행</span>
+          </li>
+        </ul>
+      </details>
+
       {form && (
-        <Dialog title={STARTS.find((s) => s.mode === form.mode)!.title} onClose={() => setForm(null)}><p className="muted">이름부터 정해 주세요. 세부 내용은 나중에 바꿀 수 있어요.</p>{err && <div role="alert" className="error">{err}</div>}
+        <Dialog title={STARTS.find((s) => s.mode === form.mode)!.title} onClose={() => setForm(null)}><p className="muted">이름부터 정해 주세요. 세부 내용은 나중에 바꿀 수 있어요.</p>
+          {form.example && <p className="muted small">예제 값이 채워져 있어요. 만든 뒤 '2 자료·질문'에서 질문 받기, '3 요구사항'에 입력 예시 파일의 기능 일곱 줄을 붙여 넣으세요.</p>}{err && <div role="alert" className="error">{err}</div>}
           <div className="form-grid">
             <Field label="사업(프로젝트) 이름">
               <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="예: 직원 교육 신청·관리 시스템 구축" />
@@ -134,8 +178,6 @@ export default function Home({ system }: { system: SystemInfo }) {
         <div className="card-head">
           <h3>프로젝트 이어하기</h3>
           <div className="card-right">
-            <button onClick={() => create("education")}>샘플: 교육 신청·관리</button>
-            <button onClick={() => create("complaint")}>샘플: 민원·배치 연계</button>
             <label className="button">
               백업 파일로 복원
               <input type="file" accept=".json,application/json" hidden onChange={(e) => e.target.files?.[0] && restore(e.target.files[0])} />
@@ -172,7 +214,7 @@ export default function Home({ system }: { system: SystemInfo }) {
             {!loading && !list.length && (
               <tr>
                 <td colSpan={7} className="muted center">
-                  저장된 프로젝트가 없습니다. 위에서 새로 시작하거나 샘플을 열어 보세요.
+                  저장된 프로젝트가 없습니다. 위에서 새로 시작하거나 '예제로 체험하기'를 열어 보세요.
                 </td>
               </tr>
             )}
