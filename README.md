@@ -130,3 +130,7 @@ docker run -d -p 8000:8000 -v swdata:/data --env-file .env --name sw-design-help
 - 장비 구매비는 개발비에 포함하지 않습니다. 유료 SW·클라우드 비용은 '별도 비용'으로만 표시합니다.
 - 단일 관리자용 MVP입니다(다중 사용자·권한 분리는 후속).
 - 연간 유지관리, 장비 유지관리, ITS/BIS, RFID, 단독 DB·공간정보 구축, 컨설팅은 후속 확장 범위입니다.
+
+## UI·UX 개발
+공통 디자인: [DESIGN_SYSTEM](docs/DESIGN_SYSTEM.md). Codex는 [AGENTS.md](AGENTS.md)에서 안내하는 문서를 직접 읽는다.
+반응형·시트·필터·저장 UX 검사는 두 빌드와 샘플 생성 후 인증 서버에서 `E2E_PASSWORD=… BASE_URL=http://127.0.0.1:8000 node e2e/ux.cjs`로 실행한다. 유료 AI 키 없이 샘플 모드로 검증한다.

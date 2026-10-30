@@ -154,3 +154,19 @@
 - 외부 공개 배포(미배포). HTTPS·디스크·PORT는 로컬에서 배포 서비스 조건을 흉내 내 확인(§5-4).
 - 공식 자료 서버 조회는 mock 전송 계층으로만 시험(이 환경에서 외부 공식 사이트 접근 제한).
 - 동시 다중 사용자 편집은 낙관적 잠금(409)까지만 시험.
+
+## 7. 공통 UI·UX 개선 (2026-10-30)
+- Node 22.23.4 / Python 3.12.14. 샘플 모드, 로컬 인증 활성 서버(8001), 시스템 Chromium + 잠금 Playwright 1.63.0. 유료 AI 호출 없음.
+- `npm run demo:data`: 생성·검증 성공. `npm run typecheck`, `npm run build`, `npm run build:demo`: 성공. `/`와 `/cj-sw-design/` 빌드 유지.
+- `uv run --frozen pytest -o addopts='' -q`: **120 passed (22.17s)**. 서버·계산·기준값 변경 없음.
+- `e2e/flow.cjs`: 로그인·잘못된 암호·생성·질문 5개·요구사항 10건·표 수정·설계·FP 14후보·확정 30 FP·목표예산·새로고침 유지·엑셀 다운로드 통과.
+- `e2e/reference.cjs`: 한글 파일 업로드·추출 7건·출처 위치·경고·유지/수정/제외·요구사항 반영·엑셀 다운로드 통과.
+- `e2e/demo.cjs`: A/B·단계 이동·비활성 버튼·출처·FP/금액/경고·검토·다운로드·새로고침·모바일/태블릿 통과. API 0/외부 AI 0/외부 요청 0/404·실패 0/콘솔 오류 0 (정상 요청 50건).
+- `e2e/ux.cjs`: A/B × 7단계 × 1400/820/390px, 가로 넘침 없음. 상태 칩 필터·검색·결과 없음, ID 상세 dialog/모바일 시트, Tab 순환·Esc·포커스 복귀, 실제 응답 지연 중 스켈레톤, 의도적 요청 실패 후 재시도 통과. 오류 주입은 정상 요청 검사와 분리.
+- 일반 앱 UX: 3개 너비 홈, 생성 dialog/시트·Esc·포커스 복귀, 긴 프로젝트 이름, 개요 미저장 경고·저장 피드백·새로고침 후 유지·빈 요구사항 표 통과.
+- 변경 전에도 같은 로컬 시연 빌드를 검사·촬영. 기능 검사는 통과했으나 favicon 콘솔 404 1건으로 전체 E2E는 실패했음. data URL favicon 추가 후 최종 시연 E2E는 전체 통과.
+- 테스트 수정: 시작 버튼의 새 이름, 접힌 단계 링크를 펼친 뒤 선택, 상태 select의 정확한 이름 선택. 기존 검증을 삭제하지 않음. 추가 UX에서 발견한 포커스 이탈은 Dialog Tab 순환 처리 후 재검증.
+- 증거: `/workspace/artifacts/cj-design/before/` 및 `after/`, `e2e/output/ux`(ignored). 변경 전후 화면은 모두 로컬 동일 데이터/너비 기준. 공개 Pages/공식 홈페이지는 프록시 403으로 실제 렌더 확인 없음.
+- 미실시: 새 UI 공개 배포, Render, 실 모바일 키보드·스크린리더, 실제 유료 AI. Docker는 UI 범위에서 재빌드하지 않음.
+
+재현: 두 빌드/샘플 생성 후 인증 있는 샘플 모드 서버 실행. `E2E_PASSWORD`와 필요 시 `BASE_URL`을 설정해 `node e2e/flow.cjs`, `node e2e/reference.cjs`, `node e2e/demo.cjs`, `node e2e/ux.cjs` 실행. ux의 기본 BASE_URL은 8001. 시스템 Chromium을 쓸 때 이 세션에서는 저장소 밖 NODE_OPTIONS preload로 실행 파일을 선택했다(코드·패키지 잠금 변경 없음). CI 환경에서는 기본 Playwright 브라우저 사용.

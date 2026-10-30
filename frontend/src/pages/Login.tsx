@@ -21,9 +21,9 @@ export default function Login({ onLogin }: { onLogin: () => void }) {
         <p className="muted">관리자 비밀번호로 로그인하세요.</p>
         <label className="field">
           <span className="field-label">비밀번호</span>
-          <input type="password" value={pw} onChange={(e) => setPw(e.target.value)} autoFocus autoComplete="current-password" />
+          <input type="password" value={pw} onChange={(e) => setPw(e.target.value)} aria-invalid={!!err} aria-describedby={err ? "login-error" : undefined} autoFocus autoComplete="current-password" />
         </label>
-        {err && <div className="error">{err}</div>}
+        {err && <div id="login-error" role="alert" className="error">{err}</div>}
         <button className="primary" type="submit">
           로그인
         </button>

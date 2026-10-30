@@ -1,6 +1,7 @@
 // 정적 시연판(GitHub Pages) 루트. `npm run build:demo`에서만 src/App.tsx 대신 쓰인다(vite.config.ts).
 // 로그인·서버 없이 미리 만든 가상 샘플을 기존 작업 화면(Workspace·단계 화면)으로 읽기 전용 표시한다.
 import { useEffect, useState } from "react";
+import { Header, Skeleton } from "../components/Frame";
 import Workspace, { STEPS } from "../pages/Workspace";
 import { won } from "../labels";
 import type { ProjectResponse, SystemInfo } from "../types";
@@ -68,10 +69,7 @@ export default function DemoApp() {
   return (
     <div className="app">
       <div className="sticky-head">
-        <header className="top">
-          <a href="#/" className="brand">
-            정보화 설계 도우미
-          </a>
+        <Header>
           <span className="mode mode-demo" title="서버·AI 없이 미리 만든 가상 샘플을 보여 주는 정적 시연판입니다. 실제 앱의 '샘플 모드'(서버 규칙 실행)와 다릅니다.">
             정적 시연판 · 서버·AI 없음
           </span>
@@ -86,14 +84,14 @@ export default function DemoApp() {
               처음으로
             </a>
           )}
-        </header>
+        </Header>
         <div className="demo-banner" role="note">
-          {BANNER}
+          <details><summary>샘플 시연판 <span className="muted">· 저장 없이 둘러보기</span></summary><p>{BANNER}</p></details>
         </div>
       </div>
-      <main>
+      <main id="content" tabIndex={-1}>
         {err && <div className="error">{err}</div>}
-        {!err && (!system || !man) && <div className="center pad">샘플 데이터를 불러오는 중…</div>}
+        {!err && (!system || !man) && <Skeleton />}
         {system && man && known && <Workspace key={`${route.pid}-${reset}`} pid={route.pid!} step={route.step} system={system} readOnly={READ_ONLY_REASON} />}
         {system && man && !known && <DemoHome man={man} unknown={route.pid} />}
       </main>
@@ -105,17 +103,13 @@ function DemoHome({ man, unknown }: { man: DemoManifest; unknown: string | null 
   return (
     <>
       {unknown && <div className="error">샘플 '{unknown}'이 없습니다. 아래에서 샘플을 고르세요.</div>}
-      <h2>샘플을 골라 둘러보세요</h2>
-      <p className="muted">
-        지방자치단체 신규 정보화사업(홈페이지·포털, 일반 SW·정보시스템 신규개발)을 구상하거나 참고문서를 제시하면, 질문으로 요구사항·설계를 구체화하고 FP·개발비·검토의견·엑셀 산출물을 만드는 도구입니다. 이 시연판은 미리 만든 가상 샘플로 화면과 결과물을 보여 줍니다.
-      </p>
+      <div className="hero"><span className="eyebrow">생각에서 설계까지</span><h1>사업 설계, 이렇게 시작해요.</h1><p>샘플을 골라 둘러보세요</p></div>
       <div className="demo-cards">
         {man.samples.map((s) => (
           <SampleCard key={s.pid} s={s} />
         ))}
       </div>
-      <section className="card">
-        <h3>시연판과 실제 앱의 차이</h3>
+      <details className="card"><summary>시연판과 실제 앱의 차이</summary>
         <div className="table-wrap">
           <table className="grid compact">
             <thead>
@@ -138,7 +132,7 @@ function DemoHome({ man, unknown }: { man: DemoManifest; unknown: string | null 
         <p className="muted small">
           실제 앱의 '샘플 모드'는 AI 키가 없을 때 서버가 규칙으로 질문·초안을 만드는 기능입니다. 이 시연판은 그 결과를 미리 저장해 둔 정적 화면이며, 브라우저에서 아무것도 새로 계산하거나 생성하지 않습니다.
         </p>
-      </section>
+      </details>
     </>
   );
 }
@@ -159,11 +153,11 @@ function SampleCard({ s }: { s: DemoSample }) {
       </div>
       {info && <p>{info.desc}</p>}
       {info && (
-        <ul className="small">
+        <details className="sample-details"><summary>이 샘플에서 볼 수 있는 것</summary><ul className="small">
           {info.shows.map((t) => (
             <li key={t}>{t}</li>
           ))}
-        </ul>
+        </ul></details>
       )}
       {p && (
         <div className="chips">
@@ -179,17 +173,17 @@ function SampleCard({ s }: { s: DemoSample }) {
         </a>
         {xlsx && (
           <a className="button" href={`${DATA_BASE}${s.pid}/${xlsx}`} download={xlsx}>
-            샘플 엑셀 다운로드(미리 만든 가상 파일)
+            샘플 엑셀 다운로드
           </a>
         )}
       </div>
-      <nav className="demo-steps" aria-label={`${s.name} 단계 바로가기`}>
+      <details className="sample-details"><summary>단계 바로가기</summary><nav className="demo-steps" aria-label={`${s.name} 단계 바로가기`}>
         {STEPS.map((st, i) => (
           <a key={st.key} href={`#/p/${s.pid}/${st.key}`}>
             {"①②③④⑤⑥⑦"[i]} {st.label.replace(/^\d\s/, "")}
           </a>
         ))}
-      </nav>
+      </nav></details>
     </section>
   );
 }

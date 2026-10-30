@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, setUnauthorizedHandler } from "./api";
+import { Header, Skeleton } from "./components/Frame";
 import Home from "./pages/Home";
 import Login from "./pages/Login";
 import Workspace from "./pages/Workspace";
@@ -31,7 +32,7 @@ export default function App() {
     return () => window.removeEventListener("hashchange", h);
   }, [loadSystem]);
 
-  if (auth === "unknown") return <div className="center pad">불러오는 중…</div>;
+  if (auth === "unknown") return <Skeleton />;
   if (auth === "out" || !system) return <Login onLogin={() => loadSystem()} />;
 
   const logout = async () => {
@@ -41,10 +42,7 @@ export default function App() {
 
   return (
     <div className="app">
-      <header className="top">
-        <a href="#/" className="brand">
-          정보화 설계 도우미
-        </a>
+      <Header>
         <span className={`mode ${system.ai.is_real_ai ? "mode-ai" : "mode-sample"}`} title={system.ai.is_real_ai ? `AI 모델: ${system.ai.model}` : "AI 키가 없거나 꺼져 있어 서버 규칙으로 질문·초안을 만듭니다."}>
           {system.mode_label}
         </span>
@@ -55,8 +53,8 @@ export default function App() {
           </button>
         )}
         {system.auth_disabled && <span className="mode mode-warn">개발용: 인증 꺼짐</span>}
-      </header>
-      <main>{route.pid ? <Workspace key={route.pid} pid={route.pid} step={route.step} system={system} /> : <Home system={system} />}</main>
+      </Header>
+      <main id="content" tabIndex={-1}>{route.pid ? <Workspace key={route.pid} pid={route.pid} step={route.step} system={system} /> : <Home system={system} />}</main>
     </div>
   );
 }

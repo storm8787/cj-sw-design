@@ -2,10 +2,12 @@
 
 ## 1. 현재 위치
 - 저장소: `storm8787/cj-sw-design`(2026-10-29 사용자가 Public으로 전환) · 작업 브랜치: `claude/kind-franklin-pjcpsr`
-- PR #1(초기 구현)·#2(리뷰 지적 수정)·#3(여러 AI 연결·실제 OpenAI 검증) 모두 `main`에 병합 완료(2026-10-29).
-- 2026-10-30 작업: 테스트 배포 준비(Render 설정 `render.yaml`, 디스크 권한 처리 `docker-entrypoint.sh`, `PORT` 대응, 참고문서 E2E, `docs/DEPLOY.md`·`docs/USER_TEST.md`). 브랜치에만 있음 — 배포하려면 `main` 병합 필요(사용자 결정).
-- 2026-10-30 작업(2): GitHub Pages 샘플 시연판(`docs/DEMO.md`, DECISIONS D-020) — 시연 빌드·샘플 생성기·Pages 워크플로·시연 E2E. 같은 브랜치·PR.
-- 배포 상태: 실제 앱 **미배포**(Render 다음 작업, 가입·결제·비밀값 입력은 사용자 몫 `docs/DEPLOY.md` §3). 샘플 시연판 **배포됨**(2026-10-30, PR #4 병합 → Actions 'Pages 시연판' run 40983396985: build·deploy 성공) — 주소 `https://storm8787.github.io/cj-sw-design/`. 이 작업 세션은 네트워크 정책으로 github.io에 접속하지 못해 공개 주소에서의 화면 확인은 사용자가 해야 함.
+- PR #1(초기 구현)·#2(리뷰 지적 수정)·#3(여러 AI 연결·실제 OpenAI 검증)·#4(테스트 배포 준비·Pages 시연판) 모두 `main`에 병합 완료.
+- 배포 상태: 실제 앱 **미배포**(Render 다음 작업, 가입·결제·비밀값 입력은 사용자 몫 `docs/DEPLOY.md` §3). 샘플 시연판 **배포됨**(2026-10-30, PR #4 병합 → Actions 'Pages 시연판' run 40983396985: build·deploy 성공) — 주소 `https://storm8787.github.io/cj-sw-design/`. 작업 세션들은 네트워크 정책으로 공개 주소에 접속하지 못해 공개 화면 확인은 사용자가 해야 함.
+- 2026-10-30 UI·UX 개선(Codex, `design/clear-workflow` → 이 브랜치에 병합): 디자인 기준 `docs/DESIGN_SYSTEM.md`, Codex 진입점 `AGENTS.md` → `agent.md` 직접 읽기(Claude Code도 같은 기준).
+  - 시작 화면 3종 분리, 시연 홈 A/B 선택 우선, 단계별 제목·이전/다음 이동, 핵심 입력 1건+전체 목록, 개요 상세 설정, 표 상태 필터·ID 상세 패널, 반응형 시트·성공 피드백·실제 로딩/오류 재시도.
+  - 백엔드 계산·기준·ID 연결·AI 동의·엑셀 결과 구조·인증은 변경하지 않음. API/App의 demo 교체는 빌드에서만 유지.
+  - 두 로컬 빌드·브라우저에서 검증. main 병합 후 Pages가 새 UI로 자동 재배포되며, 그 공개 화면 확인은 아직 안 함.
 
 ## 2. 구현 현황 (PROJECT_SPEC ID 기준)
 
@@ -54,7 +56,8 @@
 
 ## 6. 재개 명령
 ```bash
-git checkout claude/kind-franklin-pjcpsr && git pull
+git switch design/clear-workflow
+# 기존 변경을 먼저 확인하며 임의로 브랜치를 리셋하지 않는다.
 ```
 
 ```bash
@@ -75,3 +78,9 @@ cd backend && APP_ENV=development AUTH_DISABLED=true uv run uvicorn app.main:cre
 - AI 사용 시: 기본 OpenAI는 `OPENAI_API_KEY`·`OPENAI_MODEL`(검증한 모델: `gpt-6.1-sol`), 그 밖은 `.env.example`의 AI 연결 항목 참고. 각 서비스 결제 화면에서 월 지출 한도 설정. 외부 전송 동의 정책을 기관 보안 지침과 맞출 것.
 - GitHub Actions: 비공개 상태에서는 계정 결제·지출 한도 문제로 작업 시작이 거부되었음(2026-10-29). Public 전환 후 정상 실행. 다시 비공개로 바꾸면 Billing & plans의 Actions 한도를 확인해야 함.
 - 공개 저장소이므로 실제 사업 문서·DB·키·`.env`는 절대 커밋하지 않는다(.gitignore로 차단, 이력 점검 완료).
+
+## 8. UI·UX 검증과 다음 작업 (2026-10-30)
+- `docs/VALIDATION.md` §7: 타입검사·두 빌드·백엔드 120개·일반 앱 2종 E2E·시연 E2E·추가 UX 검사 통과.
+- 스크린샷: `/workspace/artifacts/cj-design/before`, `after`. 저장소 밖의 비교 산출물이며 커밋하지 않는다.
+- 실제 모바일 기기·스크린리더, 공개 Pages에서 새 UI, Render, 유료 AI는 미검증. 브라우저는 시스템 Chromium/Playwright 1.63.0으로 확인.
+- UI 구현 커밋 `c572419`(원격 `design/clear-workflow`). Codex 세션에서는 PR 생성 API가 Forbidden이라, Claude Code가 이 브랜치(`claude/kind-franklin-pjcpsr`)에 병합해 PR로 올렸다(PR 본문이 기존 `docs/UI_UX_PR.md` 초안을 대신함). main 병합은 사용자 결정.
