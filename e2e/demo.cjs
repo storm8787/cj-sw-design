@@ -109,9 +109,9 @@ function check(cond, msg) {
     await shot("A4-design");
 
     await page.getByRole("link", { name: "5 FP·개발비" }).click();
-    await page.getByText("FP 집계(확정 항목)").waitFor();
+    await page.getByText("FP 집계(코드 계산)").waitFor();
     const kpi = await page.locator(".kpi").first().innerText();
-    check(/간이법\s*[\d.]+ FP/.test(kpi), `⑤ FP 집계: ${kpi.replace(/\s+/g, " ")}`);
+    check(/간이법\s*[\d.]+ FP/.test(kpi) && /(확정|추정|부분) 산정/.test(kpi), `⑤ FP 집계·산정 상태: ${kpi.replace(/\s+/g, " ")}`);
     check(await page.getByText("직원이 입력한 만족도를 신청 정보(ILF)에 기록하는 외부 입력").isVisible(), "⑤ FP 분류 근거 표시");
     check(await page.getByRole("cell", { name: "총액(부가세 포함)" }).first().isVisible(), "⑤ 기준 산정 총액 표시");
     check(await page.getByText("예산 조정 결과(참고, 공식 측정값 아님)").first().isVisible(), "⑤ 목표예산 시나리오(참고) 표시");
@@ -140,7 +140,7 @@ function check(cond, msg) {
     // 3. 단계 주소 직접 접속·새로고침
     await page.goto(URL0 + "#/p/sampleA/fp");
     await page.reload();
-    await page.getByText("FP 집계(확정 항목)").waitFor();
+    await page.getByText("FP 집계(코드 계산)").waitFor();
     check(true, "단계 주소(#/p/sampleA/fp) 직접 접속·새로고침");
 
     // 4. 샘플 B — 참고문서
@@ -163,9 +163,13 @@ function check(cond, msg) {
     await page.locator(".tabs button", { hasText: "연계" }).click();
     check(await page.getByText("확인 필요(결제 API 호출 또는 결제 화면 이동)").isVisible(), "B④ 확인이 필요한 연계 조건");
     await page.getByRole("link", { name: "5 FP·개발비" }).click();
-    await page.getByText("FP 집계(확정 항목)").waitFor();
+    await page.getByText("FP 집계(코드 계산)").waitFor();
     check(await page.getByText(/중복 의심/).first().isVisible(), "B⑤ 중복 의심 표시");
-    check(await page.getByText(/미확정 FP 항목 \d+건은 기준 산정에서 제외됨/).first().isVisible(), "B⑤ 미확정 FP 제외 경고");
+    check(await page.getByText(/업무 확인 전 후보 \d+건은 집계에서 빠짐/).first().isVisible(), "B⑤ 업무 확인 전 후보 제외 경고");
+    check(/부분 산정/.test(await page.locator(".kpi").first().innerText()), "B⑤ 간이법 '부분 산정' 상태(완료로 보이지 않음)");
+    check(await page.getByText(/업무 확인 — 남은 후보 \d+건/).isVisible(), "B⑤ 업무 확인 표 표시");
+    check(await page.getByRole("button", { name: "있음" }).first().isDisabled(), "B⑤ 업무 확인 버튼 비활성화(시연판)");
+    check(await page.locator(".checklist summary").isVisible(), "B 확인 목록 표시");
     await shot("B5-fp");
 
     // 5. 샘플 초기화·처음으로
@@ -186,7 +190,7 @@ function check(cond, msg) {
       const over = await p.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
       check(over <= 1, `${name}(${w}px) 첫 화면 가로 넘침 없음`);
       await p.goto(URL0 + "#/p/sampleB/fp");
-      await p.getByText("FP 집계(확정 항목)").waitFor();
+      await p.getByText("FP 집계(코드 계산)").waitFor();
       const over2 = await p.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
       check(over2 <= 1, `${name}(${w}px) FP 화면 가로 넘침 없음(표는 표 안에서 스크롤)`);
       check(await p.locator(".demo-banner summary").isVisible(), `${name} 안내 문구 표시`);

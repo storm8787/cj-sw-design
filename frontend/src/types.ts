@@ -39,6 +39,11 @@ export interface FPItem extends Tracked {
   function_ids: string[];
   data_ids: string[];
   duplicate_of: string;
+  /** 업무 확인(우리 사업에 있는 처리·자료) — FP 기술 검토 확정과 별개 */
+  scope_confirmed: boolean;
+  /** 정통법 근거 목록(코드가 개수를 셈) */
+  det_items: string[];
+  ret_groups: string[];
 }
 
 export interface QuestionOption {
@@ -109,7 +114,7 @@ export interface ProposalItem {
   data: Record<string, unknown>;
   before: Record<string, unknown>;
   reason: string;
-  status: "pending" | "applied" | "rejected" | "conflict";
+  status: "pending" | "applied" | "rejected" | "conflict" | "merged";
   applied_id: string;
 }
 
@@ -184,7 +189,7 @@ export interface Estimate {
   method: "simple" | "detailed";
   standard_snapshot: { id: string; title: string };
   fp_snapshot: { id: string; name: string; fp_type: string; simple_weight: string | null; detailed_weight: number | null; complexity: string | null }[];
-  result: { fp: { total_fp: string }; money: Money };
+  result: { fp: { total_fp: string }; money: Money; basis?: EstimateBasis };
   warnings: string[];
   complete: boolean;
   mode: string;
@@ -295,9 +300,31 @@ export interface Project {
   task_draft: { generated_at: string; sections: { key: string; title: string; text: string; user_edited: boolean; regenerated_candidate: string }[] };
 }
 
+export type BasisKind = "empty" | "partial" | "estimated" | "confirmed";
+
+export interface EstimateBasis {
+  basis: BasisKind;
+  label: string;
+  counted: number;
+  scope_only_ids: string[];
+  assumed_ids: string[];
+  pending: Record<string, string[]>;
+  reasons: string[];
+}
+
+export interface ChecklistItem {
+  category: string;
+  ref: string;
+  text: string;
+  step: string;
+}
+
 export interface ProjectStatus {
   counts: Record<string, number>;
-  fp_total: { simple: string; detailed: string; detailed_complete: boolean };
+  fp_total: { simple: string; detailed: string; detailed_complete: boolean; simple_basis?: BasisKind; detailed_basis?: BasisKind };
+  fp_basis?: { simple: EstimateBasis; detailed: EstimateBasis; method: string };
+  checklist?: ChecklistItem[];
+  checklist_summary?: Record<string, number>;
   estimate_states: Record<string, "current" | "stale">;
   task_draft_stale: boolean;
   needs_review_ids: string[];
@@ -354,10 +381,14 @@ export interface FPSummaryItem {
   fp_type: string | null;
   status: string;
   counted: boolean;
+  count_basis?: "confirmed" | "scope" | "";
   simple_weight: string | null;
   complexity: string | null;
   complexity_source: string;
   detailed_weight: number | null;
+  det_used?: number | null;
+  ftr_ret_used?: number | null;
+  detailed_note?: string;
   issues: string[];
 }
 
@@ -366,6 +397,9 @@ export interface FPSummary {
   simple: { total_fp: string; by_type: Record<string, { count: number; fp: string }> };
   detailed: { total_fp: string; complete: boolean; missing_ids: string[]; assumed_ids: string[]; by_type: Record<string, { count: number; fp: number }> };
   tentative_simple_fp_including_unconfirmed: string;
+  basis: { simple: EstimateBasis; detailed: EstimateBasis };
+  foreign_text_ids?: string[];
+  duplicate_ids?: string[];
   counts: Record<string, number>;
   coverage: { rows: { requirement_id: string; title: string; kind: string; state: string; fp_ids: string[] }[] };
   standard: { id: string; title: string; official_guide_checked: boolean };

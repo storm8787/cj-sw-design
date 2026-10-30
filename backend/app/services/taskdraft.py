@@ -30,6 +30,7 @@ def input_hash(p: Project) -> str:
             "if": [i.model_dump() for i in p.interfaces],
             "dat": [d.model_dump() for d in p.data_entities],
             "as": [a.model_dump() for a in p.assumptions],
+            "q": [(q.id, q.status) for q in p.questions],
         }
     )
 
@@ -68,15 +69,41 @@ def build_sections(p: Project) -> list[TaskSection]:
     s.append(TaskSection(key="schedule", title="7. 추진 일정(초안)", text=_bullets(sched, "확인 필요") + "\n- 세부 일정은 착수 시 발주기관과 협의하여 확정"))
     dels = [d for k in phases for d in DELIVERABLES[k]]
     s.append(TaskSection(key="deliverables", title="8. 산출물", text=_bullets(dels, "확인 필요")))
-    acc = [f"[{r.id}] {r.acceptance}" for r in reqs if r.acceptance] + [f"[{f.id}] {f.acceptance}" for f in p.functions if f.acceptance]
-    missing = [r.id for r in reqs if not r.acceptance]
-    acc_text = _bullets(acc, "요구사항별 검수 기준 미정")
-    if missing:
-        acc_text += f"\n- 검수 기준 미정 요구사항: {', '.join(missing)}"
-    s.append(TaskSection(key="acceptance", title="9. 검수 기준", text=acc_text))
-    conf = [f"[{a.id}] {a.text}" for a in p.assumptions] + [f"[{q.id}] {q.text}" for q in p.questions if q.status in ("open", "deferred")]
-    s.append(TaskSection(key="open", title="10. 확인 필요 사항 및 가정", text=_bullets(conf, "없음")))
+    s.append(TaskSection(key="acceptance", title="9. 검수 기준", text=acceptance_text(p)))
+    from .checklist import checklist
+
+    items = [x for x in checklist(p) if x["category"] in ("업무 결정 필요", "설계 가정(채택)", "외부·기관 확인 필요")]
+    lines = []
+    for cat in ("업무 결정 필요", "설계 가정(채택)", "외부·기관 확인 필요"):
+        sub = [x for x in items if x["category"] == cat]
+        if sub:
+            lines.append(f"■ {cat} {len(sub)}건")
+            lines += [f"- [{x['ref']}] {x['text']}" for x in sub]
+    s.append(TaskSection(key="open", title="10. 확인 필요 사항 및 가정", text="\n".join(lines) or "- 확인 목록에 남은 항목 없음"))
     return s
+
+
+def acceptance_text(p: Project) -> str:
+    """요구사항별 검수 기준. 요구사항에 기준이 없으면 연결된 기능의 검수 기준을 함께 보여 준다(추적 가능)."""
+    lines: list[str] = []
+    missing: list[str] = []
+    fns = [f for f in p.functions if f.status != "excluded"]
+    for r in p.requirements:
+        if r.status == "excluded":
+            continue
+        linked = [f for f in fns if r.id in f.requirement_ids and f.acceptance]
+        if r.acceptance:
+            lines.append(f"[{r.id}] {r.acceptance}")
+        elif linked:
+            lines.append(f"[{r.id}] 요구사항 기준 미정 — 기능 검수 기준으로 확인: " + "; ".join(f"{f.id} {f.acceptance}" for f in linked))
+        else:
+            missing.append(r.id)
+    orphan = [f for f in fns if f.acceptance and not f.requirement_ids]
+    lines += [f"[{f.id}] {f.acceptance} (요구사항 미연결 기능)" for f in orphan]
+    text = _bullets(lines, "요구사항별 검수 기준 미정")
+    if missing:
+        text += f"\n- 검수 기준이 요구사항·기능 어디에도 없음: {', '.join(missing)}"
+    return text
 
 
 def regenerate(p: Project) -> TaskDraft:

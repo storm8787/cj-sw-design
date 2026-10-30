@@ -137,3 +137,8 @@ render.yaml                   Render 테스트 배포 설정(Blueprint, docs/DEP
 - HTTPS 종단은 배포 서비스·리버스 프록시(기관 웹서버·로드밸런서)에서 처리하고 `COOKIE_SECURE=true`로 운영.
 - 테스트 배포 추천안: Render 웹 서비스 1대 + 디스크(`render.yaml`, DECISIONS D-019, `docs/DEPLOY.md`). 2026-10-30 로컬에서 배포 조건(root 소유 디스크·PORT·HTTPS)으로 점검.
 - 실제 앱은 GitHub Pages로 동작하지 않는다(Python 서버 필요). Pages에는 서버·AI 없이 가상 샘플을 보여 주는 **정적 시연판**만 올린다(`docs/DEMO.md`, D-020). 외부 공개 배포·유료 자원 생성은 하지 않았다(미배포, 사용자 결정 대기).
+
+## FP 산정 근거 흐름(D-022, 2026-10-30)
+- `fp/engine.py`: `DesignIndex`(기능 입력·출력, 데이터 항목·하위 그룹) → `derive_metrics`(DET·FTR/RET 집계) → `evaluate_items`(집계 근거 confirmed/scope) → `estimate_basis`(미산정·부분·추정·확정).
+- `services/checklist.py`: 확인 목록(화면 상태·과업지시서 10절·엑셀 근거 시트 공통). `services/overview_suggest.py`: 개요 빈 항목 변경안(규칙, AI 호출 없음).
+- `services/proposals.py::match_fp`: FP 후보 재실행 시 같은/비슷한 처리 판정, 적용 시 merged.

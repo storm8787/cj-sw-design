@@ -10,6 +10,7 @@ from fastapi import APIRouter, File, Form, Request, Response, UploadFile
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
+from .ai import sample
 from .auth import COOKIE
 from .docs_extract import extract as dx
 from .excel import export as xl
@@ -18,7 +19,7 @@ from .fp import estimates as est
 from .main import AppCtx
 from .models import COLLECTIONS, CostSettings, DocumentMeta, Extraction, Overview, ReferenceItem, TaskDraft, TechInputs
 from .review.review import run_review
-from .services import backup, proposals, samples, status, taskdraft
+from .services import backup, overview_suggest, proposals, samples, status, taskdraft
 from .store import InvalidData, NotFound, add_item, delete_item, find_item, next_id, now, update_item
 from .tech import fetch as tfetch
 from .tech import recommend as trec
@@ -319,6 +320,23 @@ def create_scenario(pid: str, eid: str, body: ScenarioIn, request: Request):
     return {"scenario": sc.model_dump(), **ok_project(c, pid)}
 
 
+# ---------------------------------------------------------------- 사업 개요 빈 항목 갱신 제안(규칙 기반, AI 호출 없음)
+@router.post("/projects/{pid}/overview/suggest")
+def suggest_overview(pid: str, request: Request):
+    c = C(request)
+
+    def fn(p, m):
+        from .ai.tasks import _add_proposal
+
+        items = overview_suggest.suggestions(p)
+        if not items:
+            return None
+        return _add_proposal(p, m, "overview", "system", "", f"사업 개요 빈 항목 갱신 제안 {len(items)}건(이미 쓴 칸은 바꾸지 않음)", items, [])
+
+    _, _, pr = c.store.mutate(pid, actor(c), fn)
+    return {"proposal_id": pr.id if pr else None, "message": "" if pr else "채울 수 있는 빈 항목이 없거나 근거 자료가 없습니다.", **ok_project(c, pid)}
+
+
 # ---------------------------------------------------------------- 과업지시서 초안
 @router.post("/projects/{pid}/task-draft/generate")
 def gen_task(pid: str, request: Request):
@@ -597,7 +615,7 @@ def decide_ref(pid: str, rid: str, body: DecideIn, request: Request):
             text = body.modified_text if body.decision == "modify" else ref.text
             kind = "functional" if ref.kind in ("requirement", "function", "interface", "data") else "nonfunctional"
             warn = (" ※ 타 기관 고유 조건 포함(" + ", ".join(ref.org_specific) + ") — 우리 사업 값으로 확인 필요") if ref.org_specific else ""
-            r = add_item(p, m, "requirements", {"kind": kind, "category": "참고문서", "title": text[:60], "original_text": ref.text, "description": text, "source_ids": [ref.source_id] if ref.source_id else [], "why": f"참고문서 {ref.location} {'유지' if body.decision == 'keep' else '수정 반영'}{warn}", "note": body.reason, "status": "draft"}, origin="document")
+            r = add_item(p, m, "requirements", {"kind": kind, "category": "참고문서", "title": sample.short_title(text), "original_text": ref.text, "description": text, "source_ids": [ref.source_id] if ref.source_id else [], "why": f"참고문서 {ref.location} {'유지' if body.decision == 'keep' else '수정 반영'}{warn}", "note": body.reason, "status": "draft"}, origin="document")
             ref.applied_requirement_id = r.id
         elif body.decision in ("keep", "modify") and ref.applied_requirement_id and body.decision == "modify":
             update_item(p, m, "requirements", ref.applied_requirement_id, {"description": body.modified_text, "note": body.reason})

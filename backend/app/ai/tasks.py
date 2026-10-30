@@ -39,9 +39,17 @@ def norm(s: str) -> str:
     return re.sub(r"\s+", "", unicodedata.normalize("NFKC", s or "")).lower()
 
 
-def project_brief(p: Project) -> dict[str, Any]:
+def lang_problems(texts: list[str]) -> list[str]:
+    """한국어 산출물에 섞인 다른 언어(가나·한글 없는 한자 문장). 영문 제품명·용어·원문 인용은 막지 않는다."""
+    from ..fp.engine import foreign_script
+
+    bad = [t for t in texts if foreign_script(t)]
+    return [f"!한국어가 아닌 문장 {len(bad)}건: {' / '.join(x[:40] for x in bad[:5])} — 한국어로 다시 쓰십시오"] if bad else []
+
+
+def project_brief(p: Project, with_fp: bool = False) -> dict[str, Any]:
     ov = p.overview
-    return {
+    brief = {
         "사업명": p.name,
         "사업유형": ov.business_type,
         "시스템형태": ov.system_kinds,
@@ -52,10 +60,13 @@ def project_brief(p: Project) -> dict[str, Any]:
         "기관환경": ov.org_environment,
         "요구사항": [{"id": r.id, "구분": r.kind, "제목": r.title, "설명": r.description, "상태": r.status} for r in p.requirements if r.status != "excluded"],
         "질문답변": [{"질문": q.text, "답": q.answer, "모름": q.answer_kind == "unknown"} for q in p.questions if q.answer],
-        "기능": [{"id": f.id, "이름": f.name, "목적": f.purpose, "요구사항": f.requirement_ids, "데이터": f.data_ids} for f in p.functions],
-        "데이터": [{"id": d.id, "이름": d.name, "유지주체": d.maintained_by} for d in p.data_entities],
+        "기능": [{"id": f.id, "이름": f.name, "목적": f.purpose, "입력항목": f.inputs, "출력항목": f.outputs, "처리규칙": f.rules, "요구사항": f.requirement_ids, "데이터": f.data_ids} for f in p.functions if f.status != "excluded"],
+        "데이터": [{"id": d.id, "이름": d.name, "유지주체": d.maintained_by, "항목": d.attributes, "하위그룹": d.subgroups} for d in p.data_entities if d.status != "excluded"],
         "연계": [{"id": i.id, "이름": i.name, "상대": i.counterpart} for i in p.interfaces],
     }
+    if with_fp:
+        brief["기존FP"] = [{"id": f.id, "이름": f.name, "유형": f.fp_type, "기능": f.function_ids, "상태": f.status} for f in p.fp_items if f.status != "excluded"]
+    return brief
 
 
 def call_ai(provider: AIProvider, task: str, user: str, model_cls: type[BaseModel], check: Callable[[BaseModel], list[str]] | None = None, max_attempts: int = 2) -> tuple[BaseModel, list[str]]:
@@ -101,8 +112,12 @@ def task_questions(app, ctx: JobContext, params: dict[str, Any]) -> dict[str, An
     warnings: list[str] = []
     ctx.progress(0.2, "질문 생성 중")
     if prov.is_real_ai:
-        user = "다음 사업의 설계를 구체화하기 위해 지금 가장 중요한 질문을 최대 5개 만드십시오. 이미 답한 내용은 다시 묻지 마십시오. 각 질문에 선택지(권장안 1개 표시), 선택 시 추가할 요구사항(adds), 권장 이유를 포함하십시오. 시스템 목적에 맞는 질문만 하십시오.\n<project_data>\n" + json.dumps(project_brief(p), ensure_ascii=False) + "\n</project_data>"
-        out, _ = call_ai(prov, "questions", user, S.QuestionsOut)
+        user = ("다음 사업의 설계를 구체화하기 위해, 아직 자료·답변으로 정해지지 않은 업무 결정만 골라 질문을 최대 5개 만드십시오. "
+                "이미 요구사항·기능·답변에 있는 내용은 다시 묻지 마십시오. 사용자는 FP·설계 비전문가이므로 DET·FTR·EI 같은 용어로 묻지 말고 업무 언어로 물으십시오. "
+                "우선순위 예: 누가 신청·검토하는지, 신청서에 받을 정보, 첨부 증빙, 접수 후 수정·취소, 보완·승인·반려 상태 변화, 한도 차감·복원 시점, 시스템 지급인지 외부 처리 후 결과 등록인지, 조회·집계·다운로드할 자료. "
+                "각 질문에 선택지(권장안 1개, 선택이 설계·산정에 주는 영향을 쉬운 말로 why에), 선택 시 추가할 요구사항(adds), 권장 이유를 포함하십시오. "
+                "기관 계약·외부 연계 규격처럼 사용자가 정할 수 없는 사실은 질문 대신 '확인 필요'로 남기십시오.\n<project_data>\n" + json.dumps(project_brief(p), ensure_ascii=False) + "\n</project_data>")
+        out, _ = call_ai(prov, "questions", user, S.QuestionsOut, lambda o: lang_problems([q.text for q in o.questions] + [x.label for q in o.questions for x in q.options]))
     else:
         out = sample.questions(p)
     qs = out.questions
@@ -145,7 +160,7 @@ def task_requirements(app, ctx: JobContext, params: dict[str, Any]) -> dict[str,
         def check(o: S.RequirementsOut) -> list[str]:
             got = " ".join(norm(r.original_text) for r in o.requirements if r.from_user)
             missing = [t for t, d in user_lines if norm(d)[:30] not in got]
-            return [f"!사용자 기능 누락: {', '.join(missing[:10])} — 모든 사용자 기능을 from_user=true, original_text=원문으로 포함"] if missing else []
+            return ([f"!사용자 기능 누락: {', '.join(missing[:10])} — 모든 사용자 기능을 from_user=true, original_text=원문으로 포함"] if missing else []) + lang_problems([r.title for r in o.requirements] + [r.description for r in o.requirements])
 
         user = ("사용자가 입력한 기능 목록(<user_features>)을 하나도 빠짐없이 요구사항으로 정리하고(from_user=true, original_text는 원문 그대로), "
                 "빠진 기능·비기능 요구사항은 별도 제안(from_user=false)으로 추가하십시오. 검수 기준(acceptance)과 쉬운 필요 이유(why)를 쓰십시오.\n"
@@ -202,8 +217,11 @@ def task_design(app, ctx: JobContext, params: dict[str, Any]) -> dict[str, Any]:
     ctx.progress(0.2, "설계 초안 작성 중")
     if prov.is_real_ai:
         user = ("요구사항을 바탕으로 기능설계·데이터·연계·화면·업무흐름 초안을 만드십시오. key는 응답 안에서만 쓰는 임시 키입니다(f1, d1 등). "
-                "requirement_ids와 existing_data_ids는 <project_data>에 있는 ID만 쓰십시오. 확인 안 된 연계 방식·상대 시스템은 '확인 필요'로 쓰십시오.\n<project_data>\n" + json.dumps(project_brief(p), ensure_ascii=False) + "\n</project_data>")
-        out, warnings = call_ai(prov, "design", user, S.DesignOut, lambda o: _validate_design(p, o))
+                "requirement_ids와 existing_data_ids는 <project_data>에 있는 ID만 쓰십시오. 확인 안 된 연계 방식·상대 시스템은 '확인 필요'로 쓰십시오. "
+                "기능의 inputs/outputs는 화면·파일로 주고받는 데이터 항목을 쉼표로 나열하십시오(예: '성명, 연락처, 신청금액, 증빙파일'). 설명 문장은 rules에 쓰십시오. "
+                "신규 사업이라 정해지지 않은 항목은 일반적인 설계안으로 제안하되, 기관 계약·외부 규격이 필요한 것은 '확인 필요'로 쓰십시오. "
+                "데이터마다 attributes(주요 항목 목록)와 subgroups(기본 묶음을 뺀 추가 하위 그룹, 예: 승인 이력)를 쓰십시오. 공통 화면·검증 로직을 별도 기능으로 쪼개지 마십시오.\n<project_data>\n" + json.dumps(project_brief(p), ensure_ascii=False) + "\n</project_data>")
+        out, warnings = call_ai(prov, "design", user, S.DesignOut, lambda o: _validate_design(p, o) + lang_problems([f.name for f in o.functions] + [f.purpose for f in o.functions] + [d.name for d in o.data_entities]))
     else:
         out = sample.design(p)
         warnings = [x.lstrip("!") for x in _validate_design(p, out)]
@@ -215,7 +233,7 @@ def task_design(app, ctx: JobContext, params: dict[str, Any]) -> dict[str, Any]:
     mode = mode_of(prov)
     items: list[ProposalItem] = []
     for d in out.data_entities:
-        items.append(ProposalItem(key=d.key, op="add", collection="data_entities", data={"name": d.name, "description": d.description, "maintained_by": d.maintained_by, "personal_info": d.personal_info, "origin": mode, "status": "draft"}, reason=d.reason))
+        items.append(ProposalItem(key=d.key, op="add", collection="data_entities", data={"name": d.name, "description": d.description, "attributes": ", ".join(d.attributes), "subgroups": list(d.subgroups), "maintained_by": d.maintained_by, "personal_info": d.personal_info, "origin": mode, "status": "draft"}, reason=d.reason))
     for i in out.interfaces:
         items.append(ProposalItem(key=i.key, op="add", collection="interfaces", data={"name": i.name, "counterpart": i.counterpart, "direction": i.direction, "method": i.method, "data_items": i.data_items, "verified": "unverified", "origin": mode, "status": "draft"}, reason=i.reason))
     for f in out.functions:
@@ -241,36 +259,75 @@ def task_fp(app, ctx: JobContext, params: dict[str, Any]) -> dict[str, Any]:
     ctx.progress(0.2, "FP 후보 분류 중")
     if prov.is_real_ai:
         user = ("기능·데이터를 보고 FP 후보(단위프로세스·데이터 기능)를 제시하십시오. 유형이 불확실하면 fp_type=null과 uncertainty를 쓰십시오. "
-                "DET/FTR/RET는 근거가 있을 때만 쓰고 모르면 null. 점수는 쓰지 마십시오. ID는 <project_data>에 있는 것만 쓰십시오.\n<project_data>\n" + json.dumps(project_brief(p), ensure_ascii=False) + "\n</project_data>")
-        out, _ = call_ai(prov, "fp_candidates", user, S.FPOut)
+                "DET/FTR/RET 숫자는 쓰지 말고 null로 두십시오(시스템 코드가 셉니다). 대신 det_items에 그 처리가 경계를 넘어 주고받는 데이터 요소 목록을, "
+                "데이터 기능은 det_items에 항목 목록·ret_groups에 기본 묶음을 뺀 추가 하위 그룹을, data_ids에 참조·유지하는 데이터 ID를 쓰십시오. 같은 항목을 두 번 쓰지 마십시오. "
+                "<project_data>의 '기존FP'와 같은 처리는 새로 만들지 말고 같은 이름으로 쓰십시오(시스템이 기존 항목 갱신안으로 바꿉니다). "
+                "물리 테이블 수를 데이터 기능 수로 바꾸지 말고, 본인확인·중복확인·권한·파기·파일 다운로드는 독립된 업무 처리인지(경계 안 데이터를 바꾸거나 별도 출력인지) 근거를 rationale에 쓰십시오. "
+                "점수는 쓰지 마십시오. ID는 <project_data>에 있는 것만 쓰십시오.\n<project_data>\n" + json.dumps(project_brief(p, with_fp=True), ensure_ascii=False) + "\n</project_data>")
+        out, _ = call_ai(prov, "fp_candidates", user, S.FPOut, lambda o: lang_problems([d.name for d in o.items] + [d.rationale for d in o.items]))
     else:
         out = sample.fp_candidates(p)
-    from ..fp.engine import normalize_name
+    from ..services.proposals import match_fp
 
     req_ids = {r.id for r in p.requirements}
     fn_ids = {f.id for f in p.functions}
     dat_ids = {d.id for d in p.data_entities}
-    existing = {normalize_name(f.name) for f in p.fp_items}
+    pending = [i for pr in p.proposals if pr.kind == "fp_candidates" and pr.status in ("pending", "partial") for i in pr.items if i.status in ("pending", "conflict") and i.op == "add"]
     warnings: list[str] = []
     items: list[ProposalItem] = []
+    taken: list[dict[str, Any]] = []  # 이번 응답에서 이미 만든 후보(응답 안 중복 방지)
     for i, d in enumerate(out.items):
         bad = [x for x in d.requirement_ids if x not in req_ids] + [x for x in d.function_ids if x not in fn_ids] + [x for x in d.data_ids if x not in dat_ids]
         if bad:
             warnings.append(f"'{d.name}': 존재하지 않는 ID 제거({', '.join(bad)})")
-        if normalize_name(d.name) in existing:
-            warnings.append(f"'{d.name}': 이미 있는 FP 항목과 이름이 같아 제외(중복 방지)")
-            continue
-        existing.add(normalize_name(d.name))
-        det = d.det if d.det and d.det > 0 else None
-        ftr = d.ftr_ret if d.ftr_ret is not None and d.ftr_ret >= 0 else None
-        items.append(ProposalItem(key=f"fp{i}", op="add", collection="fp_items", data={
+        data = {
             "name": d.name, "application": "" if d.fp_type == "EIF" else p.overview.boundary_name, "fp_type": d.fp_type, "rationale": d.rationale, "uncertainty": d.uncertainty,
-            "det": det, "ftr_ret": ftr, "requirement_ids": [x for x in d.requirement_ids if x in req_ids], "function_ids": [x for x in d.function_ids if x in fn_ids],
-            "data_ids": [x for x in d.data_ids if x in dat_ids], "origin": mode, "status": "draft"}, reason=d.rationale or d.uncertainty))
+            "det": None, "ftr_ret": None, "det_items": list(d.det_items), "ret_groups": list(d.ret_groups),  # DET·FTR/RET 숫자는 코드가 근거로 센다
+            "requirement_ids": [x for x in d.requirement_ids if x in req_ids], "function_ids": [x for x in d.function_ids if x in fn_ids],
+            "data_ids": [x for x in d.data_ids if x in dat_ids], "origin": mode, "status": "draft"}
+        if match_fp(data, taken)[1] == "same":
+            warnings.append(f"'{d.name}': 같은 응답 안에서 중복 — 제외")
+            continue
+        hit, level = match_fp(data, [{**x.data, "_pending": x} for x in pending])
+        if level == "same":
+            warnings.append(f"'{d.name}': 아직 적용하지 않은 이전 변경안에 같은 후보가 있음 — 다시 만들지 않음")
+            continue
+        target, level = match_fp(data, [it.model_dump() for it in p.fp_items if it.status != "excluded"])
+        taken.append(data)
+        if level == "same":
+            fill = _fill_only(target, data)
+            if not fill:
+                warnings.append(f"'{d.name}': 기존 {target['id']}와 같은 처리 — 바뀔 내용 없음")
+                continue
+            items.append(ProposalItem(key=f"fp{i}", op="update", collection="fp_items", target_id=target["id"], data=fill, before={k: target.get(k) for k in fill},
+                                      reason=f"기존 {target['id']}와 같은 처리 — 비어 있던 근거만 채움(사용자 입력은 유지)"))
+            continue
+        reason = d.rationale or d.uncertainty
+        if level == "similar":
+            reason = f"⚠ 기존 {target['id']}({target['name']})와 비슷함 — 같은 처리면 적용하지 말고 거절하세요. " + reason
+        items.append(ProposalItem(key=f"fp{i}", op="add", collection="fp_items", data=data, reason=reason))
     if not p.overview.boundary_name:
         warnings.append("측정 대상 애플리케이션(경계)이 지정되지 않았습니다. 개요에서 먼저 정하세요.")
-    _, _, pr = app.store.mutate(pid, mode, lambda p, m: _add_proposal(p, m, "fp_candidates", mode, params["_job_id"], f"FP 후보 {len(items)}건(모두 '초안' — 검토 후 확정해야 견적에 반영)", items, warnings, prov.display()))
+    n_add = sum(1 for x in items if x.op == "add")
+    n_upd = len(items) - n_add
+    _, _, pr = app.store.mutate(pid, mode, lambda p, m: _add_proposal(p, m, "fp_candidates", mode, params["_job_id"], f"FP 후보 새로 {n_add}건 · 기존 항목 근거 보완 {n_upd}건(적용 후 '업무 확인'하면 추정 산정에 반영)", items, warnings, prov.display()))
     return {"proposal_id": pr.id, "items": len(items), "warnings": warnings, "mode": mode, "source": prov.display()}
+
+
+def _fill_only(target: dict[str, Any], data: dict[str, Any]) -> dict[str, Any]:
+    """기존 FP 항목 갱신안: 비어 있는 칸만 채우고 연결 ID는 합친다. 사용자가 쓴 값은 바꾸지 않는다."""
+    fill: dict[str, Any] = {}
+    for k in ("fp_type", "rationale", "uncertainty"):
+        if not target.get(k) and data.get(k):
+            fill[k] = data[k]
+    for k in ("det_items", "ret_groups"):
+        if not target.get(k) and data.get(k):
+            fill[k] = data[k]
+    for k in ("requirement_ids", "function_ids", "data_ids"):
+        merged = list(dict.fromkeys(list(target.get(k) or []) + list(data.get(k) or [])))
+        if merged != list(target.get(k) or []):
+            fill[k] = merged
+    return fill
 
 
 # ---------------------------------------------------------------- 참고문서 분석(장문 분할)

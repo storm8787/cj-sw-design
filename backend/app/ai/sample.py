@@ -203,11 +203,40 @@ VERBS = r"(등록|수정|삭제|조회|관리|신청|취소|승인|반려|처리
 _ACTION_WORDS = set(VERBS.strip("()").split("|")) - {"신청", "접수", "·", ","}
 
 
+_OBJ = re.compile(r"^(.+?)(?:을|를)(?:\s|$)")
+_GENERIC = {"정보", "신청", "관리", "내역", "현황", "월별", "본인", "온라인", "업무", "데이터", "자료", "시스템"}
+
+
+def short_title(text: str) -> str:
+    """요구사항 문장 → 짧은 제목. 예: 'SFR-001 관광객이 경비 환급을 신청하는 기능을 제공하여야 한다' → '경비 환급을 신청'.
+    원문은 original_text에 그대로 보존하고 제목만 줄인다."""
+    s = REQ_ID.sub("", text or "").strip(" -:·\t")
+    s = re.sub(r"^[가-힣]{1,8}(이|가|은|는)\s+", "", s)
+    s = re.sub(r"\s*(하는|할 수 있는|하기 위한|하는\s*등의)?\s*기능(을|를)?\s*(제공|지원|구현|구축)?\s*(하여야|해야)\s*(한다|함)\.?$", "", s)
+    s = re.sub(r"\s*(을|를)?\s*(제공|지원)?(하여야|해야)\s*(한다|함)\.?$", "", s)
+    return (s.strip() or (text or "").strip())[:60]
+
+
 def base_noun(title: str) -> str:
-    """요구사항·기능명에서 업무 대상 명사를 뽑는다. 예: '신청 승인·반려' → '신청', '교육과정 등록·관리' → '교육과정'."""
+    """요구사항·기능명에서 업무 대상 명사를 뽑는다. 예: '신청 승인·반려' → '신청', '교육과정 등록·관리' → '교육과정'.
+    문장형('환급 신청을 심사하여 승인')이면 목적어(을/를 앞)에서 뽑는다."""
+    m = _OBJ.match(title.strip())
+    if m:
+        title = re.split(r"(?:과|와)\s", re.sub(r"^[가-힣]+의\s+", "", m.group(1)), maxsplit=1)[0]
     words = [w for w in re.split(r"[\s·,/()\[\]:]+", title) if w]
     kept = [w for w in words if w not in _ACTION_WORDS and not any(w.endswith(v) and len(w) > len(v) + 1 and v in ("등록", "조회", "관리", "처리") for v in _ACTION_WORDS)]
     return " ".join(kept) or (words[0] if words else title.strip())
+
+
+def _tokens(noun: str) -> set[str]:
+    return {w for w in noun.split() if len(w) >= 2 and w not in _GENERIC}
+
+
+def _read_only(text: str) -> bool:
+    """조회·통계처럼 자료를 바꾸지 않는 요구사항(새 데이터 묶음을 만들지 않는다)."""
+    reads = any(w in text for w in ("조회", "통계", "현황", "목록", "검색", "집계", "보고"))
+    writes = any(w in text for w in ("등록", "수정", "삭제", "승인", "반려", "취소", "입력", "변경", "접수"))
+    return reads and not writes
 
 
 def actor_of(text: str) -> str:
@@ -231,11 +260,16 @@ def design(p: Project) -> S.DesignOut:
             ikey = f"if{i}"
             ifs.append(S.IfDraft(key=ikey, name=f"{r.title} 연계", counterpart="확인 필요", direction="outbound" if "전송" in text else "inbound", method="확인 필요", data_items="확인 필요", requirement_ids=[r.id], reason="요구사항에 연계 표현이 있음 — 상대 시스템·방식은 확인 전까지 미정"))
         elif noun and noun not in existing_data:
-            if noun not in data_keys:
+            # 같은 업무 대상(핵심 낱말이 겹침)은 데이터 하나로 묶고, 조회·통계는 기존 데이터를 참조만 한다
+            same = next((k for n, k in data_keys.items() if _tokens(n) & _tokens(noun)), None)
+            if same:
+                data_keys.setdefault(noun, same)
+            elif not _read_only(text) and noun not in data_keys:
                 key = f"d{len(datas)}"
                 data_keys[noun] = key
-                datas.append(S.DataDraft(key=key, name=f"{noun} 정보", description=f"{noun} 관련 업무 데이터(항목은 확인 필요)", maintained_by="internal", personal_info=any(w in text for w in ("신청", "회원", "민원", "개인")), requirement_ids=[r.id], reason="요구사항의 업무 대상 명사를 데이터 후보로 추출 — 테이블 수와 FP 수는 다를 수 있음"))
-            dkeys.append(data_keys[noun])
+                datas.append(S.DataDraft(key=key, name=noun if noun.endswith("정보") else f"{noun} 정보", description=f"{noun} 관련 업무 데이터(항목은 확인 필요)", maintained_by="internal", personal_info=any(w in text for w in ("신청", "회원", "민원", "개인")), requirement_ids=[r.id], reason="요구사항의 업무 대상 명사를 데이터 후보로 추출 — 테이블 수와 FP 수는 다를 수 있음"))
+            if noun in data_keys:
+                dkeys.append(data_keys[noun])
         fkey = f"f{i}"
         funcs.append(S.FuncDraft(key=fkey, name=r.title, actor=actor_of(text), purpose=r.description or r.title, inputs="확인 필요", outputs="확인 필요", rules="확인 필요", exceptions="확인 필요", permissions=actor_of(text), acceptance=r.acceptance or "", requirement_ids=[r.id], data_keys=dkeys, existing_data_ids=[existing_data[noun]] if noun in existing_data else [], interface_keys=[f"if{i}"] if any(x.key == f"if{i}" for x in ifs) else [], reason="요구사항 1건을 기능 1건 초안으로 구성 — 세부 입력·출력·규칙은 사용자 확인 필요"))
         screens.append(S.ScreenDraft(key=f"s{i}", name=f"{r.title} 화면", users=actor_of(text), description="화면 구성 초안", function_keys=[fkey], reason="기능별 화면 초안(화면 수는 FP 수와 무관)"))
@@ -292,6 +326,12 @@ def fp_candidates(p: Project) -> S.FPOut:
             for v in crud:
                 add(S.FPDraft(name=f"{base_noun(f.name)} {v}", fp_type="EI", rationale=f"기능명의 '{v}' → 내부 데이터를 바꾸는 별도 처리", uncertainty="DET·FTR 미입력(정통법 전 확인 필요)", det=None, ftr_ret=None, requirement_ids=f.requirement_ids, function_ids=[f.id], data_ids=f.data_ids))
             continue
+        # '신청 내역 조회'의 '신청', '처리 상태'의 '처리'처럼 업무 대상 명사로 쓰인 낱말은 입력 처리로 보지 않는다
+        if any(t in ("EQ", "EO") for _, t, _ in hits) and all(w in ("신청", "접수", "처리") for w, t, _ in hits if t == "EI"):
+            hits = [h for h in hits if h[1] != "EI"]
+        # 통계·집계 출력의 '현황·내역·목록'은 출력 내용이므로 별도 조회로 나누지 않는다
+        if any(t == "EO" for _, t, _ in hits) and all(w in ("현황", "내역", "목록") for w, t, _ in hits if t == "EQ"):
+            hits = [h for h in hits if h[1] != "EQ"]
         by_type: dict[str, tuple[str, str]] = {}
         for w, t, why in hits:
             by_type.setdefault(t, (w, why))
@@ -317,6 +357,8 @@ def classify_line(line: str) -> tuple[str, list[str]] | None:
     s = line.strip()
     if len(s) < 8 or len(s) > 600:
         return None
+    if re.search(r"(과업\s*지시서|제안\s*요청서|과업\s*내용서)", s) and not REQ_ID.search(s) and not re.search(r"(하여야|해야)", s):
+        return None  # 문서 제목 줄
     org = [k for k, rx in ORG_RULES.items() if rx.search(s)]
     if not (REQ_ID.search(s) or REQ_HINT.search(s)) and not set(org) & {"budget", "period", "org_name"}:
         return None

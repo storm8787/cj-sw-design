@@ -141,7 +141,8 @@ def test_excel_text_not_formula_and_not_run_sheets(client):
     cell = next(c_ for row in ws.iter_rows() for c_ in row if isinstance(c_.value, str) and c_.value.startswith("=HYPERLINK"))
     assert cell.data_type == "s"
     assert any("미실행" in str(c_.value) for row in wb["개발비_기준"].iter_rows() for c_ in row)
-    assert any("미분류" in str(c_.value) or "미확정" in str(c_.value) for row in wb["FP_정통법"].iter_rows() for c_ in row)
+    assert any("근거 부족" in str(c_.value) or "미분류" in str(c_.value) for row in wb["FP_정통법"].iter_rows() for c_ in row)
+    assert any(str(c_.value).startswith("부분 산정") for row in wb["FP_정통법"].iter_rows() for c_ in row)
     assert wb["요구사항"].freeze_panes and wb["요구사항"].auto_filter.ref
     assert wb["요구사항"].page_setup.orientation == "landscape"
 

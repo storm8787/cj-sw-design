@@ -9,7 +9,7 @@ import OverviewStep from "../steps/OverviewStep";
 import RequirementsStep from "../steps/RequirementsStep";
 import ReviewStep from "../steps/ReviewStep";
 import SourcesStep from "../steps/SourcesStep";
-import type { ProjectResponse, SystemInfo } from "../types";
+import type { ChecklistItem, ProjectResponse, SystemInfo } from "../types";
 
 export const STEPS: { key: string; label: string }[] = [
   { key: "overview", label: "1 개요" },
@@ -82,9 +82,11 @@ export default function Workspace({ pid, step, system, readOnly }: { pid: string
             <span className={`chip ${data.ai.is_real_ai ? "" : "chip-warn"}`} title={data.ai.note || (data.ai.external ? "외부 AI 서비스로 전송(요청마다 동의)" : "외부 전송 없음")}>
               AI: {data.ai.display}
             </span>
-            <span className="chip">FP 간이 {st.fp_total.simple} / 정통 {st.fp_total.detailed}{st.fp_total.detailed_complete ? "" : "(미완)"}</span>
+            <span className={`chip ${st.fp_basis?.simple.basis === "confirmed" ? "" : "chip-warn"}`} title={st.fp_basis?.simple.reasons.join(" · ")}>
+              FP 간이 {st.fp_basis?.simple.basis === "empty" ? "미산정" : `${st.fp_total.simple}(${st.fp_basis?.simple.label ?? ""})`} / 정통 {st.fp_basis?.detailed.basis === "empty" ? "미산정" : `${st.fp_total.detailed}(${st.fp_basis?.detailed.label ?? ""})`}
+            </span>
             <span className="chip">미확정 요구 {st.counts.requirements_unconfirmed}</span>
-            <span className="chip">미확정 FP {st.counts.fp_unconfirmed}</span>
+            <span className="chip">업무 확인 전 FP {st.counts.fp_awaiting_scope ?? st.counts.fp_unconfirmed}</span>
             <span className="chip">미답변 질문 {st.counts.questions_open}</span>
             {st.counts.needs_review > 0 && <span className="chip chip-warn">재검토 {st.counts.needs_review}</span>}
             {st.counts.pending_proposals > 0 && <span className="chip chip-info">검토할 변경안 {st.counts.pending_proposals}</span>}
@@ -118,6 +120,7 @@ export default function Workspace({ pid, step, system, readOnly }: { pid: string
             </ul><button className="link" aria-expanded={allNext} onClick={() => setAllNext(!allNext)}>{allNext ? "핵심 항목만" : `전체 ${st.next_steps.length}건 보기`}</button>
           </div>
         )}
+        {!!st.checklist?.length && <Checklist items={st.checklist} pid={pid} />}
         {err && (
           <div className="error" role="alert">
             {err} <button className="link" onClick={() => setErr("")}>닫기</button>
@@ -135,5 +138,42 @@ export default function Workspace({ pid, step, system, readOnly }: { pid: string
         <nav className="step-footer" aria-label="이전·다음 단계"><a className="button" href={cur === "overview" ? "#/" : `#/p/${pid}/${STEPS[currentIndex-1].key}`}>{cur === "overview" ? "프로젝트 목록" : "← 이전 단계"}</a>{cur !== "excel" && <a className="button primary" href={`#/p/${pid}/${STEPS[currentIndex+1].key}`}>다음: {STEPS[currentIndex+1].label.replace(/^\d /, "")} →</a>}</nav>
       </div>
     </ProjectContext.Provider>
+  );
+}
+
+const CL_HELP: Record<string, string> = {
+  "업무 결정 필요": "담당 부서가 정할 업무 내용",
+  "설계 가정(채택)": "사실로 확인된 것이 아니라 설계를 위해 채택한 가정",
+  "외부·기관 확인 필요": "상대 기관·시스템에 확인할 내용",
+  "FP 기술 검토 필요": "FP 전문가·발주 담당 검토가 필요한 항목",
+  미실행: "아직 실행하지 않은 검토·산정('문제 없음'과 다름)",
+};
+
+/** 확인 목록: 흩어진 확인 필요·가정·미실행 항목을 구분별로 모은다(엑셀 근거 시트·과업지시서 10절과 같은 목록). */
+function Checklist({ items, pid }: { items: ChecklistItem[]; pid: string }) {
+  const cats = Object.keys(CL_HELP).filter((c) => items.some((x) => x.category === c));
+  return (
+    <details className="next checklist">
+      <summary>
+        <b>확인 목록 {items.length}건</b>{" "}
+        <span className="muted small">{cats.map((c) => `${c} ${items.filter((x) => x.category === c).length}`).join(" · ")}</span>
+      </summary>
+      {cats.map((c) => (
+        <div key={c}>
+          <b className="small">{c}</b> <span className="muted small">— {CL_HELP[c]}</span>
+          <ul className="small">
+            {items
+              .filter((x) => x.category === c)
+              .map((x, i) => (
+                <li key={i}>
+                  <a href={`#/p/${pid}/${x.step}`}>
+                    [{x.ref}] {x.text}
+                  </a>
+                </li>
+              ))}
+          </ul>
+        </div>
+      ))}
+    </details>
   );
 }

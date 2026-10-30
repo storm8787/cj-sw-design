@@ -31,7 +31,7 @@ const INTRO: Record<string, { title: string; kind: string; desc: string; shows: 
       "수정·제외 예시와 이유, 결정 대기 항목",
       "미확정·미분류 FP, 중복 의심, 확인이 필요한 결제 연계 조건",
       "미답변 질문과 검토 대기 변경안(사용자 요구 vs 규칙 제안)",
-      "확정 항목만으로 만든 기준 산정(미확정 제외 경고 포함)",
+      "산정 상태 표시(부분 산정: 업무 확인 전·중복 의심 항목은 집계에서 빠짐)와 확인 목록",
     ],
   },
 };
@@ -162,9 +162,9 @@ function SampleCard({ s }: { s: DemoSample }) {
       {p && (
         <div className="chips">
           <span className="chip">요구사항 {p.project.requirements.length}</span>
-          <span className="chip">FP 간이 {p.status.fp_total.simple}</span>
+          <span className="chip">FP 간이 {p.status.fp_total.simple}{p.status.fp_basis ? ` · ${p.status.fp_basis.simple.label}` : ""}</span>
           {est && <span className="chip">기준 산정 총액 {won(est.result.money.total)}</span>}
-          {p.status.counts.fp_unconfirmed > 0 && <span className="chip chip-warn">미확정 FP {p.status.counts.fp_unconfirmed}</span>}
+          {(p.status.counts.fp_awaiting_scope ?? p.status.counts.fp_unconfirmed) > 0 && <span className="chip chip-warn">업무 확인 전 FP {p.status.counts.fp_awaiting_scope ?? p.status.counts.fp_unconfirmed}</span>}
         </div>
       )}
       <div className="row-actions">

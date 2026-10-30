@@ -25,7 +25,24 @@ export const QUALITY: Record<string, string> = { high: "상", medium: "중", low
 export const ORG_SPECIFIC: Record<string, string> = { budget: "예산", period: "기간", personal_info: "개인정보", product: "특정 제품", org_name: "기관명" };
 export const REF_KIND: Record<string, string> = { requirement: "요구사항", function: "기능", data: "데이터", interface: "연계", condition: "조건", other: "기타" };
 export const SYSTEM_KINDS: Record<string, string> = { web: "웹", mobile: "모바일", desktop: "데스크톱 프로그램", server: "서버 프로그램", batch: "배치 자동처리", integration: "시스템 연계" };
-export const CX_SOURCE: Record<string, string> = { table: "복잡도표", assumed: "가정", missing: "입력 누락", unclassified: "미분류", excluded: "제외" };
+export const CX_SOURCE: Record<string, string> = { table: "복잡도표(입력값)", derived: "복잡도표(근거 목록 집계)", assumed: "가정", missing: "근거 부족", unclassified: "미분류", excluded: "제외" };
+/** 산정 상태 — 숫자가 나왔다고 완료가 아니다(engine.estimate_basis). */
+export const BASIS_BADGE: Record<string, string> = { empty: "st-excluded", partial: "st-review", estimated: "st-draft", confirmed: "st-confirmed" };
+export const BASIS_HELP: Record<string, string> = {
+  empty: "집계된 FP가 0건 — 금액을 만들 수 없습니다.",
+  partial: "아직 집계에 넣지 못한 후보·미분류·중복 의심·FP 미연결 요구사항이 남아 있습니다.",
+  estimated: "업무 확인만 한 항목(FP 기술 검토 전)이나 가정 복잡도가 포함된 추정치입니다.",
+  confirmed: "집계 항목이 모두 기술 검토 확정이고 남은 후보가 없습니다.",
+};
+/** FP 유형을 업무 말로 묻는 선택지(기본 화면에서 EI/EO 같은 약어를 고르게 하지 않음). */
+export const PLAIN_TYPE: [string, string][] = [
+  ["EI", "자료를 등록·수정·삭제하는 처리"],
+  ["EQ", "저장된 자료를 그대로 찾아보는 처리"],
+  ["EO", "계산·집계해서 보여주거나 내보내는 처리"],
+  ["ILF", "이 시스템이 직접 관리하는 자료 묶음"],
+  ["EIF", "다른 시스템 자료를 읽기만 함"],
+];
+export const PLAIN_TYPE_LABEL: Record<string, string> = Object.fromEntries(PLAIN_TYPE);
 
 export const GLOSSARY: Record<string, { title: string; text: string; example: string }> = {
   FP: { title: "기능점수(FP)", text: "사용자 입장에서 시스템이 제공하는 기능의 양을 점수로 잰 것입니다. 화면·메뉴·테이블 개수가 아니라 '업무 처리 단위'와 '데이터 묶음'을 셉니다.", example: "교육 신청 등록(EI) 1건, 교육과정 정보(ILF) 1건 …" },

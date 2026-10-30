@@ -22,8 +22,8 @@ const COLS: Record<string, Col[]> = {
     { key: "name", label: "기능명", width: 140 },
     { key: "actor", label: "사용자", width: 80 },
     { key: "purpose", label: "업무 목적", type: "textarea" },
-    { key: "inputs", label: "입력", type: "textarea" },
-    { key: "outputs", label: "출력", type: "textarea" },
+    { key: "inputs", label: "입력 항목(쉼표로 나열)", type: "textarea" },
+    { key: "outputs", label: "출력·화면 표시 항목(쉼표로 나열)", type: "textarea" },
     { key: "rules", label: "처리 규칙", type: "textarea" },
     { key: "exceptions", label: "예외", type: "textarea" },
     { key: "permissions", label: "권한", width: 80 },
@@ -48,7 +48,8 @@ const COLS: Record<string, Col[]> = {
   data_entities: [
     { key: "name", label: "데이터명", width: 150 },
     { key: "description", label: "설명", type: "textarea" },
-    { key: "attributes", label: "주요 항목", type: "textarea" },
+    { key: "attributes", label: "주요 항목(쉼표로 나열)", type: "textarea" },
+    { key: "subgroups", label: "하위 묶음(예: 승인이력)", type: "ids", width: 110 },
     { key: "relations", label: "관계", type: "textarea", width: 120 },
     { key: "maintained_by", label: "유지 주체", type: "select", options: [["internal", "이 시스템"], ["external", "외부 시스템"], ["unknown", "확인 필요"]], width: 90 },
     { key: "personal_info", label: "개인정보", type: "bool", width: 70 },
@@ -81,6 +82,7 @@ export default function DesignStep() {
         }
       >
         <p className="muted small">발주자가 검토할 초안입니다. 확인하지 않은 DB·API·기존 시스템 구조는 '확인 필요'로 남기세요. 화면·테이블 수는 FP 수와 같지 않습니다.</p>
+        <p className="muted small">기능의 입력·출력 항목과 데이터의 주요 항목을 <b>쉼표로 나열</b>하면(예: 신청자명, 연락처, 환급 계좌) 정통법 DET·FTR/RET를 코드가 셉니다. 숫자를 따로 적지 않아도 됩니다.</p>
         <JobStatus job={jr.job} running={jr.running} onRetry={jr.retry} note={jr.note} />
       </Section>
       <Proposals kinds={["design"]} />

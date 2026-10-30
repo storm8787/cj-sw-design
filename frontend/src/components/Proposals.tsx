@@ -4,14 +4,15 @@ import { ORIGIN } from "../labels";
 import type { Proposal, ProjectResponse } from "../types";
 import { ActionButton, Badge, Warn, useProject, useReadOnly } from "./ui";
 
-const COLL: Record<string, string> = { requirements: "요구사항", functions: "기능", data_entities: "데이터", interfaces: "연계", screens: "화면", workflows: "업무흐름", fp_items: "FP 항목" };
-const KIND: Record<string, string> = { requirements: "요구사항 초안", answer: "답변에 따른 제안", design: "설계 초안", fp_candidates: "FP 후보" };
+const COLL: Record<string, string> = { requirements: "요구사항", functions: "기능", data_entities: "데이터", interfaces: "연계", screens: "화면", workflows: "업무흐름", fp_items: "FP 항목", overview: "사업 개요" };
+const KIND: Record<string, string> = { requirements: "요구사항 초안", answer: "답변에 따른 제안", design: "설계 초안", fp_candidates: "FP 후보", overview: "개요 빈 항목 제안" };
 
 function summarize(d: Record<string, unknown>): string {
-  const keys = ["title", "name", "fp_type", "description", "purpose", "counterpart", "rationale", "uncertainty"];
+  const keys = ["title", "name", "fp_type", "description", "purpose", "users", "boundary_name", "system_kinds", "counterpart", "rationale", "uncertainty"];
+  const pre: Record<string, string> = { fp_type: "유형 ", users: "이용자: ", boundary_name: "FP 측정 대상: ", system_kinds: "시스템 형태: " };
   return keys
     .filter((k) => d[k] !== undefined && d[k] !== "" && d[k] !== null)
-    .map((k) => `${k === "fp_type" ? "유형" : ""}${String(d[k]).slice(0, 120)}`)
+    .map((k) => `${pre[k] || ""}${(Array.isArray(d[k]) ? (d[k] as unknown[]).join(", ") : String(d[k])).slice(0, 120)}`)
     .join(" · ");
 }
 
@@ -78,7 +79,7 @@ function ProposalCard({ pr, pid, onDone, run, busy }: { pr: Proposal; pid: strin
                 <input type="checkbox" aria-label={`${i.key} 선택`} disabled={!!ro} checked={sel.has(i.key)} onChange={() => toggle(i.key)} />
               </td>
               <td>
-                {COLL[i.collection] || i.collection} {i.op === "add" ? "추가" : "수정"}
+                {COLL[i.collection] || i.collection} {i.op === "add" ? "추가" : i.collection === "overview" ? "빈 칸 채우기" : `수정(${i.target_id})`}
               </td>
               <td>
                 {summarize(i.data)}
