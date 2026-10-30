@@ -49,7 +49,8 @@ jobs:
         working-directory: frontend/dist-demo
         run: |
           find . -type f | sort
-          bad=$(find . -type f ! \( -name '*.html' -o -name '*.js' -o -name '*.css' -o -name '*.json' -o -name '*.xlsx' -o -name '*.docx' \))
+          # 예제 파일(examples/ 원본 복사본)만 .md·.txt를 허용한다
+          bad=$(find . -type f ! \( -name '*.html' -o -name '*.js' -o -name '*.css' -o -name '*.json' -o -name '*.xlsx' -o -name '*.docx' \) ! \( -path './demo-data/examples/*' \( -name '*.md' -o -name '*.txt' \) \))
           if [ -n "$bad" ]; then echo "예상 밖 파일: $bad"; exit 1; fi
           if grep -rIl -e 'OPENAI_API_KEY' -e 'ADMIN_PASSWORD' -e 'demo-generator-' .; then echo "비밀값 이름·생성기 값이 들어 있음"; exit 1; fi
       - name: Playwright 설치
