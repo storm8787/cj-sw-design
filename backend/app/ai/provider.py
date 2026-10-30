@@ -15,9 +15,11 @@ from __future__ import annotations
 import json
 import logging
 import re
+import time
 from typing import Any, Callable
 
 from ..config import AIProfile, Settings
+from . import usage
 
 log = logging.getLogger("swd.ai")
 
@@ -33,15 +35,22 @@ class AIProvider:
     external = False  # 외부로 데이터가 전송되는가
     is_real_ai = False
     model = ""
+    task_models: dict[str, str] = {}
+    reasoning_effort = ""
 
     def generate_json(self, task: str, system: str, user: str, schema: dict[str, Any]) -> str:
         raise NotImplementedError
+
+    def model_for(self, task: str) -> str:
+        """작업에 쓸 모델(작업별 설정이 있으면 그 모델). 작업 제출 때 이 값을 기록해 실행·재시도 중 바뀌지 않게 한다."""
+        return self.task_models.get(task) or self.model
 
     def display(self) -> str:
         return f"{self.label} · {self.model}" if self.model else self.label
 
     def describe(self) -> dict[str, Any]:
-        return {"name": self.name, "kind": self.kind, "label": self.label, "model": self.model, "external": self.external, "is_real_ai": self.is_real_ai, "display": self.display(), "usable": True, "missing": []}
+        return {"name": self.name, "kind": self.kind, "label": self.label, "model": self.model, "task_models": dict(self.task_models), "reasoning_effort": self.reasoning_effort,
+                "external": self.external, "is_real_ai": self.is_real_ai, "display": self.display(), "usable": True, "missing": []}
 
 
 class SampleProvider(AIProvider):
@@ -66,6 +75,7 @@ class MockProvider(AIProvider):
 
     def generate_json(self, task, system, user, schema):
         self.calls.append({"task": task, "user_len": len(user)})
+        usage.record(task=task, model=self.model_for(task), latency_ms=0, input_tokens=len(user) // 2, cached_tokens=0, output_tokens=0, reasoning_tokens=None)
         r = self.responses.get(task)
         if r is None:
             raise AIError(f"mock 응답 미설정: {task}")
@@ -110,6 +120,8 @@ class OpenAIProvider(AIProvider):
         self.name = profile.name
         self.label = profile.label
         self.model = profile.model
+        self.task_models = dict(profile.task_models)
+        self.reasoning_effort = profile.reasoning_effort
         self.external = profile.external
         self.max_tokens = settings.ai_max_output_tokens
         kwargs: dict[str, Any] = {"api_key": profile.api_key or "not-needed", "timeout": settings.ai_timeout_sec, "max_retries": 1}
@@ -120,7 +132,9 @@ class OpenAIProvider(AIProvider):
         self.client = openai.OpenAI(**kwargs)
 
     def _request(self, task: str, system: str, user: str, schema: dict[str, Any]) -> dict[str, Any]:
-        req: dict[str, Any] = {"model": self.model, "max_completion_tokens": self.max_tokens}
+        req: dict[str, Any] = {"model": self.model_for(task), "max_completion_tokens": self.max_tokens}
+        if self.reasoning_effort:
+            req["reasoning_effort"] = self.reasoning_effort
         if self.json_mode == "json_schema":
             req["response_format"] = {"type": "json_schema", "json_schema": {"name": re.sub(r"[^a-zA-Z0-9_-]", "_", task)[:64], "schema": schema, "strict": True}}
             req["messages"] = [{"role": "system", "content": system}, {"role": "user", "content": user}]
@@ -133,13 +147,21 @@ class OpenAIProvider(AIProvider):
         return req
 
     def generate_json(self, task, system, user, schema):
+        model = self.model_for(task)
+        t0 = time.monotonic()
         try:
             resp = self.client.chat.completions.create(**self._request(task, system, user, schema))
         except self._sdk.APIError as e:
-            raise _map_sdk_error(self._sdk, e, self.label, self.model) from e
-        usage = getattr(resp, "usage", None)
+            # 실패한 호출도 과금됐을 수 있다: 사용량은 미측정(None)으로 남긴다(0으로 가정하지 않음)
+            usage.record(task=task, model=model, latency_ms=int((time.monotonic() - t0) * 1000), error=type(e).__name__, **dict.fromkeys(usage.FIELDS))
+            raise _map_sdk_error(self._sdk, e, self.label, model) from e
+        u = getattr(resp, "usage", None)
         choice = resp.choices[0] if resp.choices else None
-        log.info("ai profile=%s task=%s model=%s finish=%s in=%s out=%s", self.name, task, self.model, getattr(choice, "finish_reason", None), getattr(usage, "prompt_tokens", None), getattr(usage, "completion_tokens", None))
+        pd, cd = getattr(u, "prompt_tokens_details", None), getattr(u, "completion_tokens_details", None)
+        usage.record(task=task, model=getattr(resp, "model", None) or model, latency_ms=int((time.monotonic() - t0) * 1000), finish=getattr(choice, "finish_reason", None),
+                     input_tokens=getattr(u, "prompt_tokens", None), cached_tokens=getattr(pd, "cached_tokens", None) if pd is not None else None,
+                     output_tokens=getattr(u, "completion_tokens", None), reasoning_tokens=getattr(cd, "reasoning_tokens", None) if cd is not None else None)
+        log.info("ai profile=%s task=%s model=%s finish=%s in=%s out=%s", self.name, task, model, getattr(choice, "finish_reason", None), getattr(u, "prompt_tokens", None), getattr(u, "completion_tokens", None))
         if choice is None:
             raise AIError(f"{self.label} 응답이 비어 있습니다.")
         if getattr(choice.message, "refusal", None):
@@ -183,6 +205,7 @@ class AnthropicProvider(AIProvider):
         self.client = anthropic.Anthropic(**kwargs)
 
     def generate_json(self, task, system, user, schema):
+        t0 = time.monotonic()
         try:
             resp = self.client.messages.create(
                 model=self.model,
@@ -192,7 +215,10 @@ class AnthropicProvider(AIProvider):
                 output_config={"format": {"type": "json_schema", "schema": schema}},
             )
         except self._sdk.APIError as e:
+            usage.record(task=task, model=self.model, latency_ms=int((time.monotonic() - t0) * 1000), error=type(e).__name__, **dict.fromkeys(usage.FIELDS))
             raise _map_sdk_error(self._sdk, e, self.label, self.model) from e
+        usage.record(task=task, model=self.model, latency_ms=int((time.monotonic() - t0) * 1000), finish=resp.stop_reason, input_tokens=resp.usage.input_tokens,
+                     cached_tokens=getattr(resp.usage, "cache_read_input_tokens", None), output_tokens=resp.usage.output_tokens, reasoning_tokens=None)
         log.info("ai profile=%s task=%s model=%s stop=%s in=%s out=%s", self.name, task, self.model, resp.stop_reason, resp.usage.input_tokens, resp.usage.output_tokens)
         if resp.stop_reason == "refusal":
             raise AIError(f"{self.label}가 이 요청 처리를 거절했습니다. 수동으로 작성하거나 내용을 바꿔 다시 시도하세요.")
