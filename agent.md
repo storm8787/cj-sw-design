@@ -69,10 +69,12 @@ cd frontend && npm ci && npm run typecheck && npm run build
 cd frontend && npm run dev                  # http://localhost:5173 (API는 8000으로 프록시)
 # E2E (서버 실행 후)
 E2E_PASSWORD=<관리자 비밀번호> node e2e/flow.cjs   # 서버는 운영 모드(인증)로 실행
+E2E_PASSWORD=<관리자 비밀번호> node e2e/reference.cjs  # 참고문서 기반 흐름(2026-10-30 추가)
 # Docker 단일 서버
 docker build -t sw-design-helper . && docker run -p 8000:8000 -v swdata:/data --env-file .env sw-design-helper
 ```
-- 위 명령은 2026-10-29 모두 실제 실행해 확인했다(개발 서버는 화면 200·API 프록시 응답까지). 결과는 `docs/VALIDATION.md`.
+- 위 명령은 2026-10-29 모두 실제 실행해 확인했다(개발 서버는 화면 200·API 프록시 응답까지). `reference.cjs`는 2026-10-30 확인. 결과는 `docs/VALIDATION.md`.
+- 테스트 배포 안내는 `docs/DEPLOY.md`, 배포 후 사용자 테스트 순서는 `docs/USER_TEST.md`.
 - 새 명령은 실행해 VALIDATION에 기록하기 전까지 '검증 전'으로 본다.
 
 ## 10. Git에 올리지 않는 것

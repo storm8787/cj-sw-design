@@ -95,6 +95,14 @@
 - 실제 OpenAI 검증(2026-10-29, `gpt-6.1-sol`) 후 기본값 조정: 출력 상한 `AI_MAX_OUTPUT_TOKENS` 32000(설계 응답이 8000에서 잘림), 시간 제한 `AI_TIMEOUT_SEC` 600초(설계 1건 약 2분), SDK 자동 재시도 1회(재시도가 대기 시간을 몇 배로 늘림). 근거는 VALIDATION §5-3.
 - 미결: Anthropic·사내/상용 LLM 실제 호출 검증(키·주소 필요).
 
+### D-019 (2026-10-30) 테스트 배포: Render 웹 서비스 1대 + 영속 디스크
+- 지시: "신규개발 기능을 직접 사용해 검증할 수 있도록 테스트 배포 준비, 간단한 배포안 하나 추천."
+- 선택: Render Web Service(Docker, Starter, Singapore) + 1GB 디스크(`/data`), 저장소 루트 `render.yaml`(Blueprint). 비밀값은 `sync: false`로 Render 화면에서만 입력, `SECRET_KEY`는 `generateValue`.
+  - 이유: 현재 구조(이미지 1개 = 화면+API, SQLite, 작업 스레드)는 서버 1대 + 영속 디스크가 맞고, GitHub 연결·화면 입력만으로 HTTPS·비밀값·자동 재배포가 되어 명령줄 도구가 필요 없다.
+  - 대안: Fly.io(더 저렴, flyctl 필요), 기관 VM + Docker. 무료 인스턴스는 디스크가 없어 제외.
+- 이미지 변경: root로 시작해 `/data` 소유자를 맞춘 뒤 비루트로 전환(`docker-entrypoint.sh`, 배포 디스크가 root 소유일 때 기동 실패하던 문제), 포트는 `PORT` 환경변수(기본 8000).
+- 실제 배포·과금은 사용자 결정(agent.md §12). Render 공식 문서는 이 세션 네트워크 정책으로 열지 못해, `render.yaml` 항목은 배포 시 Render 화면에서 확인한다(수동 설정 절차를 DEPLOY §3에 함께 둠).
+
 ## 과거 결정
 - D-007(AI 어댑터: Anthropic 단일 + 샘플, 키가 있어도 기본 샘플)은 D-018로 대체됨.
 - D-001의 '공개 범위 변경 없음'(Private 유지)은 D-017로 대체됨.

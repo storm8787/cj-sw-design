@@ -33,8 +33,10 @@ frontend/                     React 18 + TypeScript + Vite (package-lock.json)
   src/pages/                  Home(시작 4종·목록·복원), Workspace(7단계), Login
   src/steps/                  Overview, Sources(질문·문서·참고항목), Requirements, Design, Fp, Review(검토·추천), Excel
   src/components/             EditableTable, Proposals, Jobs, ui
-e2e/flow.cjs                  Playwright 브라우저 E2E
-Dockerfile, .dockerignore     단일 서버 이미지(화면+API, /data 볼륨)
+e2e/flow.cjs, reference.cjs   Playwright 브라우저 E2E(구상 기반 / 참고문서 기반)
+Dockerfile, .dockerignore     단일 서버 이미지(화면+API, /data 볼륨, PORT 환경변수)
+docker-entrypoint.sh          /data 소유자 맞춘 뒤 비루트(app)로 전환
+render.yaml                   Render 테스트 배포 설정(Blueprint, docs/DEPLOY.md)
 .github/workflows/ci.yml      백엔드 테스트·프런트 타입검사/빌드·E2E·이미지 빌드
 ```
 
@@ -127,5 +129,6 @@ Dockerfile, .dockerignore     단일 서버 이미지(화면+API, /data 볼륨)
 - 개발: 백엔드 8000 + Vite 5173(프록시) 또는 `frontend/dist` 빌드 후 백엔드 하나로 실행.
 - Docker: `docker build -t sw-design-helper .` → `docker run -p 8000:8000 -v swdata:/data --env-file .env sw-design-helper`.
   DB·업로드·사용자 정의 기준은 `/data` 볼륨에 남아 컨테이너 교체(재배포) 후에도 유지(2026-10-29 실제 확인, VALIDATION 참고).
-- HTTPS 종단은 리버스 프록시(기관 웹서버·로드밸런서)에서 처리하고 `COOKIE_SECURE=true`로 운영.
-- GitHub Pages로는 동작하지 않는다(Python 서버 필요). 외부 공개 배포·유료 자원 생성은 하지 않았다(미배포).
+- HTTPS 종단은 배포 서비스·리버스 프록시(기관 웹서버·로드밸런서)에서 처리하고 `COOKIE_SECURE=true`로 운영.
+- 테스트 배포 추천안: Render 웹 서비스 1대 + 디스크(`render.yaml`, DECISIONS D-019, `docs/DEPLOY.md`). 2026-10-30 로컬에서 배포 조건(root 소유 디스크·PORT·HTTPS)으로 점검.
+- GitHub Pages로는 동작하지 않는다(Python 서버 필요). 외부 공개 배포·유료 자원 생성은 하지 않았다(미배포, 사용자 결정 대기).
