@@ -18,6 +18,11 @@ export function Dialog({ title, children, onClose }: { title: string; children: 
     const first = nodes[0], last = nodes[nodes.length - 1];
     if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last?.focus(); }
     else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first?.focus(); }
-  }} onCancel={onClose} onClick={e => { if(e.target === e.currentTarget) onClose(); }}><div className="dialog-head"><h2 id={id}>{title}</h2><button onClick={onClose} aria-label="닫기">닫기</button></div>{children}</dialog>, document.body);
+  }} onCancel={onClose} onClick={e => {
+    // 바깥(backdrop) 클릭만 닫는다. 안쪽 여백 클릭도 target이 dialog이므로 좌표로 구분해 입력을 지키지 않고 닫는 일을 막는다.
+    if (e.target !== e.currentTarget) return;
+    const r = e.currentTarget.getBoundingClientRect();
+    if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) onClose();
+  }}><div className="dialog-head"><h2 id={id}>{title}</h2><button onClick={onClose} aria-label="닫기">닫기</button></div>{children}</dialog>, document.body);
 }
 export function Skeleton() { return <div className="skeleton" role="status" aria-label="불러오는 중"><span>불러오는 중…</span><i/><i/><i/></div>; }

@@ -54,6 +54,12 @@ const server = http.createServer((req,res) => {
    await live.setViewportSize({width,height:900});await live.screenshot({path:path.join(out,`app-home-${width}.png`),fullPage:true});
    const trigger=live.getByRole('button',{name:'구상으로 시작하기'});await trigger.click();await live.getByRole('dialog').waitFor();await live.keyboard.press('Escape');assert(await trigger.evaluate(e=>e===document.activeElement));
   }
+  // 대화상자 안쪽 여백 클릭은 닫지 않고(입력 보존), 바깥(backdrop) 클릭만 닫는다(PR #5 리뷰 지적)
+  await live.getByRole('button',{name:'구상으로 시작하기'}).click();const dlg=live.getByRole('dialog');await dlg.waitFor();
+  await live.getByPlaceholder('예: 직원 교육 신청·관리 시스템 구축').fill('여백 클릭 보존');const box=await dlg.boundingBox();
+  await live.mouse.click(box.x+6,box.y+box.height-6);assert(await dlg.isVisible(),'안쪽 여백 클릭에 대화상자가 닫힘');
+  assert.equal(await live.getByPlaceholder('예: 직원 교육 신청·관리 시스템 구축').inputValue(),'여백 클릭 보존');
+  await live.mouse.click(5,5);await dlg.waitFor({state:'hidden'});
   await live.getByRole('button',{name:'구상으로 시작하기'}).click();await live.getByPlaceholder('예: 직원 교육 신청·관리 시스템 구축').fill('반응형 긴 프로젝트 이름 '.repeat(8));await live.getByRole('button',{name:'만들기',exact:true}).click();await live.locator('.step-intro').waitFor();
   await live.getByRole('link',{name:/^1 개요/}).click();await live.getByPlaceholder('예: 교육관리시스템').fill('테스트 시스템');await live.getByText('저장하지 않은 변경이 있습니다.',{exact:false}).waitFor();
   await live.getByRole('button',{name:'저장',exact:true}).first().click();await live.getByText('저장했습니다.',{exact:false}).waitFor();
