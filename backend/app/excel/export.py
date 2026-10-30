@@ -617,7 +617,8 @@ TYPES = ("ILF", "EIF", "EI", "EO", "EQ")
 FILL_CALC = PatternFill("solid", fgColor="FFEB9C")  # FP 산출 열(참고 파일 ⑤가중치 열)
 
 
-def _type_summary(ws, r: int, first: int, last: int, type_col: str, score_col: str, counted_col: str, py_by_type: dict, fmt: str, checks, label: str, ncols: int) -> int:
+def _type_summary(ws, r: int, first: int, last: int, type_col: str, score_col: str, counted_col: str, py_by_type: dict, fmt: str, checks, label: str, ncols: int, weight_col: str | None = None) -> int:
+    """weight_col: 정통법은 복잡도가 판정되어 가중치가 숫자인 항목만 센다(engine.calc_detailed와 같은 조건)."""
     r = section(ws, r, f"유형별 집계({label})")
     header(ws, r, ["유형", "기능 수(집계)", "FP(수식)", "설명"])
     ws.merge_cells(start_row=r, start_column=4, end_row=r, end_column=ncols)
@@ -625,7 +626,11 @@ def _type_summary(ws, r: int, first: int, last: int, type_col: str, score_col: s
     lo, hi = first, max(last, first)
     for t in TYPES:
         put(ws, r, 1, t, al="center", bold=True, fill=FILL_LABEL)
-        put(ws, r, 2, f'=COUNTIFS({type_col}{lo}:{type_col}{hi},"{t}",{counted_col}{lo}:{counted_col}{hi},"Y")', fmt="0", formula=True, al="center")
+        if weight_col:
+            cnt = f'=SUMPRODUCT(({type_col}{lo}:{type_col}{hi}="{t}")*({counted_col}{lo}:{counted_col}{hi}="Y")*ISNUMBER({weight_col}{lo}:{weight_col}{hi}))'
+        else:
+            cnt = f'=COUNTIFS({type_col}{lo}:{type_col}{hi},"{t}",{counted_col}{lo}:{counted_col}{hi},"Y")'
+        put(ws, r, 2, cnt, fmt="0", formula=True, al="center")
         put(ws, r, 3, f'=SUMIFS({score_col}{lo}:{score_col}{hi},{type_col}{lo}:{type_col}{hi},"{t}")', fmt=fmt, formula=True)
         put(ws, r, 4, L.FP_TYPE_DESC[t])
         ws.merge_cells(start_row=r, start_column=4, end_row=r, end_column=ncols)
@@ -737,7 +742,7 @@ def _fp_detailed(ws, p: Project, std, fp_sum, checks):
     if d.get("derived_ids"):
         r = note(ws, r, f"* 코드 집계 {len(d['derived_ids'])}건: 기능의 입력·출력 항목·데이터 항목 목록에서 코드가 DET·FTR/RET을 셈(FP_RULES §4-1 시스템 규칙, 원문 미확인) — 근거 목록을 검토하세요.", ncols)
     r += 1
-    _type_summary(ws, r, first, last, "C", "K", "I", d["by_type"], "0", checks, "정통법", ncols)
+    _type_summary(ws, r, first, last, "C", "K", "I", d["by_type"], "0", checks, "정통법", ncols, weight_col="J")
     ws.freeze_panes = f"C{hr + 1}"
     if last >= first:
         ws.auto_filter.ref = f"A{hr}:{get_column_letter(ncols)}{last}"

@@ -51,3 +51,24 @@ def test_empty_project_sheets_read_naturally(client):
     assert "기준 산정 미실행" in texts and "미산정" in texts
     assert "미실행" in str(wb["개발비_기준"]["A4"].value)
     assert wb["FP_간이법"].print_area
+
+
+import shutil  # noqa: E402
+import subprocess  # noqa: E402
+
+import pytest  # noqa: E402
+
+
+@pytest.mark.skipif(not shutil.which("soffice"), reason="LibreOffice 없음")
+def test_detailed_counts_match_when_complexity_missing(client, tmp_path):
+    """업무 확인했지만 DET·FTR 근거가 없는 EI: 정통법 유형별 기능 수(수식)도 Python처럼 복잡도 판정된 항목만 센다."""
+    c = client
+    pid = c.post("/api/projects", json={"name": "근거 부족"}).json()["project"]["id"]
+    c.post(f"/api/projects/{pid}/items/fp_items", json={"data": {"name": "신청", "fp_type": "EI", "scope_confirmed": True}})
+    src = tmp_path / "x.xlsx"
+    src.write_bytes(c.get(f"/api/projects/{pid}/export.xlsx").content)
+    subprocess.run(["soffice", "--headless", "--calc", "--convert-to", "xlsx", "--outdir", str(tmp_path / "r"), str(src)], check=True, timeout=180, capture_output=True)
+    wb = openpyxl.load_workbook(tmp_path / "r" / "x.xlsx", data_only=True)
+    rows = [r for r in wb["검산"].iter_rows(min_row=5, values_only=True) if r[0]]
+    bad = [r for r in rows if r[5] != "일치"]
+    assert rows and not bad, bad
