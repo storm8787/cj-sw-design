@@ -479,8 +479,11 @@ def check(out: Path) -> list[str]:
             if DEMO_LABEL not in texts or DEMO_LABEL not in str(wb.properties.subject or ""):
                 errs.append(f"{s['key']}: 엑셀에 샘플 시연판 표시 없음")
             total = int(e.result["money"]["total"])
-            if not any(isinstance(c.value, (int, float)) and int(c.value) == total for row in wb["개발비_기준"].iter_rows() for c in row):
-                errs.append(f"{s['key']}: 엑셀 개발비_기준 시트에 견적 {e.id} 총액 {total:,}원(Python 확인값)이 없음")
+            chk = {r[0]: r for r in wb["검산"].iter_rows(values_only=True) if r and r[0]}
+            if (chk.get("개발비 총액") or (None,) * 4)[3] != total:
+                errs.append(f"{s['key']}: 엑셀 검산 시트에 견적 {e.id} 총액 {total:,}원(Python 확인값)이 없음")
+            if not any(c.data_type == "f" for row in wb["개발비_기준"].iter_rows() for c in row):
+                errs.append(f"{s['key']}: 개발비_기준 시트에 금액 수식이 없음")
             fp_cells = [c.value for row in wb["검산"].iter_rows() for c in row]
             if float(Decimal(e.result["fp"]["total_fp"])) not in [v for v in fp_cells if isinstance(v, (int, float))]:
                 errs.append(f"{s['key']}: 검산 시트에 견적 FP {e.result['fp']['total_fp']}가 없음")
