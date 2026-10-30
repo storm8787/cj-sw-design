@@ -83,4 +83,4 @@ cd backend && APP_ENV=development AUTH_DISABLED=true uv run uvicorn app.main:cre
 - `docs/VALIDATION.md` §7: 타입검사·두 빌드·백엔드 120개·일반 앱 2종 E2E·시연 E2E·추가 UX 검사 통과.
 - 스크린샷: `/workspace/artifacts/cj-design/before`, `after`. 저장소 밖의 비교 산출물이며 커밋하지 않는다.
 - 실제 모바일 기기·스크린리더, 공개 Pages에서 새 UI, Render, 유료 AI는 미검증. 브라우저는 시스템 Chromium/Playwright 1.63.0으로 확인.
-- PR API 조회/생성은 `api.github.com`에서 Forbidden. PR 본문은 `docs/UI_UX_PR.md`에 준비한다. push 결과는 최종 응답 참조. 임의 main 병합 금지.
+- UI 구현 커밋 `c572419`, 원격 `design/clear-workflow`에 push 완료. PR 조회/생성을 시도했으나 `api.github.com/graphql`에서 Forbidden. 본문은 `docs/UI_UX_PR.md`, 생성 주소는 https://github.com/storm8787/cj-sw-design/pull/new/design/clear-workflow . PR 생성 자체는 미완료이며 main 병합 금지.
