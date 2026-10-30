@@ -27,5 +27,8 @@ services:
         sync: false
       - key: OPENAI_API_KEY # 비우면 샘플 모드(AI 아님)
         sync: false
+      # 2026-10-30 소규모 비교시험(docs/AI_COST.md)을 통과한 구성: 기본 gpt-6-luna, FP 후보만 gpt-6.1-sol
       - key: OPENAI_MODEL
+        value: gpt-6-luna
+      - key: OPENAI_MODEL_FP_CANDIDATES
         value: gpt-6.1-sol

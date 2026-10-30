@@ -80,6 +80,10 @@ class Database:
         self._conn.execute("PRAGMA journal_mode=WAL")
         self._conn.execute("PRAGMA foreign_keys=ON")
         self._conn.executescript(SCHEMA)
+        # 기존 DB 호환: 나중에 추가한 열
+        cols = {r["name"] for r in self._conn.execute("PRAGMA table_info(jobs)")}
+        if "usage" not in cols:
+            self._conn.execute("ALTER TABLE jobs ADD COLUMN usage TEXT")
 
     @contextmanager
     def tx(self):

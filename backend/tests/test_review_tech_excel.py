@@ -142,7 +142,7 @@ def test_excel_text_not_formula_and_not_run_sheets(client):
     assert cell.data_type == "s"
     assert any("미실행" in str(c_.value) for row in wb["개발비_기준"].iter_rows() for c_ in row)
     assert any("근거 부족" in str(c_.value) or "미분류" in str(c_.value) for row in wb["FP_정통법"].iter_rows() for c_ in row)
-    assert any(str(c_.value).startswith("부분 산정") for row in wb["FP_정통법"].iter_rows() for c_ in row)
+    assert any(str(c_.value).startswith("정통법 산정 상태: 부분 산정") for row in wb["FP_정통법"].iter_rows() for c_ in row)
     assert wb["요구사항"].freeze_panes and wb["요구사항"].auto_filter.ref
     assert wb["요구사항"].page_setup.orientation == "landscape"
 
@@ -165,5 +165,5 @@ def test_excel_recalculated_matches_python(client, tmp_path):
     for label, sheet, fval, pval, diff, verdict in rows:
         assert verdict == "일치", (label, fval, pval)
     total_row = next(r for r in wb["개발비_기준"].iter_rows(values_only=True) if r[0] == "총액(부가세 포함)")
-    assert total_row[1] == total_row[2] == e["result"]["money"]["total"]
+    assert total_row[9] == e["result"]["money"]["total"]  # 재계산된 총액 수식(J열) = Python 계산
     assert xl.SHEET_NAMES == wb.sheetnames

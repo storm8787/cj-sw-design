@@ -29,7 +29,7 @@
 - **개발비**: 기준 산정 버전(당시 기준 보존) + 목표예산 시나리오(기능 유지, 조정률·환산값·끝수조정 공개)
 - **기존 문서 검토**: 요구사항 ID 누락, FP 가중치·중복·합계, 산식·VAT·총액, 불명확 범위, 문서로 확정 불가 항목
 - **HW·SW 구성 추천**: 자체 서버 가정 기반 구성안 / 클라우드 서비스 구성(사양 미제시), 공식 출처·확인일 관리
-- **엑셀 산출물**: 12개 시트 + 검산 시트(수식 값 = Python 계산값 확인), 화면 미리보기, JSON 백업·복원
+- **엑셀 산출물**: 산출내역서처럼 읽고 인쇄하는 업무용 서식(첫 시트 산정 요약, 개발비 산정표, FP 다단 머리글, A4·머리행 반복·쪽번호) 13개 시트 + 검산 시트(수식 값 = Python 계산값 확인), 화면 미리보기, JSON 백업·복원 — `docs/EXCEL_FORMAT.md`
 - **AI(여러 공급자 교체 가능)**: OpenAI(ChatGPT, 기본)·Anthropic(Claude)·OpenAI 호환 상용/사내 LLM을 동시에 설정하고 프로젝트마다 선택. 키가 없으면 **샘플 모드**(서버 규칙, AI 아님)로 전체 흐름 사용 가능. AI 결과는 '변경안'으로만 제시되어 사용자가 골라 적용
 
 ## 사용 순서
@@ -114,7 +114,7 @@ docker run -d -p 8000:8000 -v swdata:/data --env-file .env --name sw-design-help
 ### AI 연결
 | 연결 | 켜는 방법 | 비고 |
 |---|---|---|
-| OpenAI(ChatGPT) — 기본 | `OPENAI_API_KEY`, `OPENAI_MODEL` | 2026-10-29 `gpt-6.1-sol`로 실제 호출 검증. 구조화 출력(JSON 스키마) 사용. `OPENAI_BASE_URL`로 프록시·Azure OpenAI v1 주소 지정 가능 |
+| OpenAI(ChatGPT) — 기본 | `OPENAI_API_KEY`, `OPENAI_MODEL`, (선택) `OPENAI_MODEL_<작업>` | 2026-10-30 비교시험을 통과한 권장 구성: `OPENAI_MODEL=gpt-6-luna` + `OPENAI_MODEL_FP_CANDIDATES=gpt-6.1-sol`(근거·한계 `docs/AI_COST.md`). 구조화 출력(JSON 스키마) 사용. 작업마다 실제 호출 모델·토큰을 작업 상태에 표시. `OPENAI_BASE_URL`로 프록시·Azure OpenAI v1 주소 지정 가능 |
 | Anthropic(Claude) | `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL` | 구조화 출력 사용. 실제 호출 미검증 |
 | OpenAI 호환 상용·사내 LLM | `LLM_BASE_URL`, `LLM_MODEL`, (`LLM_API_KEY`, `LLM_LABEL`, `LLM_JSON_MODE`, `LLM_EXTERNAL`) | 구조화 출력 미지원 서버는 `LLM_JSON_MODE=prompt`. 기관 내부 설치면 `LLM_EXTERNAL=false`. 실제 호출 미검증 |
 | 샘플 모드 | 항상 사용 가능 | AI 아님(규칙 기반), 외부 전송 없음 |
@@ -126,7 +126,7 @@ docker run -d -p 8000:8000 -v swdata:/data --env-file .env --name sw-design-help
 
 ## 제약
 - FP·개발비 기준값은 2026 산정양식 패키지의 양식 수식에서 추출했습니다. KOSA 가이드 원문(2025 개정판)은 이 작업 환경에서 접속이 막혀 **미확인**이며, 이윤율·끝수·단계별 비율은 확인 필요로 표시됩니다(`docs/FP_RULES.md`).
-- 실제 AI 호출은 OpenAI(`gpt-6.1-sol`)로만 검증했습니다(2026-10-29 다섯 작업, 2026-10-30 배포 설정에서 질문·문서 추출). Anthropic·사내/상용 LLM은 가짜 전송 계층으로만 시험했습니다. HWP는 실험적 지원이며 HWPX/PDF 변환을 권장합니다. 스캔 PDF는 OCR을 하지 않습니다.
+- 실제 AI 호출은 OpenAI로만 검증했습니다(2026-10-30 `gpt-6.1-sol`·`gpt-6.1-terra`·`gpt-6-luna` 가상 3사례 비교시험, `docs/AI_COST.md`). 그 이전 기록:(2026-10-29 다섯 작업, 2026-10-30 배포 설정에서 질문·문서 추출). Anthropic·사내/상용 LLM은 가짜 전송 계층으로만 시험했습니다. HWP는 실험적 지원이며 HWPX/PDF 변환을 권장합니다. 스캔 PDF는 OCR을 하지 않습니다.
 - 장비 구매비는 개발비에 포함하지 않습니다. 유료 SW·클라우드 비용은 '별도 비용'으로만 표시합니다.
 - 단일 관리자용 MVP입니다(다중 사용자·권한 분리는 후속).
 - 연간 유지관리, 장비 유지관리, ITS/BIS, RFID, 단독 DB·공간정보 구축, 컨설팅은 후속 확장 범위입니다.

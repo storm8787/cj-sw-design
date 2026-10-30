@@ -203,7 +203,8 @@ def test_scenario_c_ai_rerun_duplicates_become_updates(app_factory):
     first = {"items": [it("수료증 발급 신청", rationale="신청 등록", det=9, ftr_ret=2)]}
     again = {"items": [it("수료증 발급 신청", rationale="다른 근거", det_items=["과정명", "신청자"]), it("수료증 신청 내역 확인")]}
     prov = MockProvider()
-    prov.responses = {"fp_candidates": [json.dumps(first, ensure_ascii=False), json.dumps(again, ensure_ascii=False), json.dumps(first, ensure_ascii=False)]}
+    # 샘플 프로젝트에는 처리 후보가 없는 기능이 있어 실행마다 1회 재요청된다(같은 응답을 두 번씩)
+    prov.responses = {"fp_candidates": [json.dumps(x, ensure_ascii=False) for x in (first, first, again, again, first, first)]}
     c = client_for(app_factory(provider=prov))
     pid = c.post("/api/projects", json={"name": "x", "sample": "education"}).json()["project"]["id"]
     n0 = len(pj(c.get(f"/api/projects/{pid}"))["project"]["fp_items"])

@@ -100,18 +100,31 @@ class JobRunner:
             return
         fn = self.handlers[j["kind"]]
         self.db.execute("UPDATE jobs SET status='running', attempts=attempts+1, message='실행 중', updated_at=? WHERE id=?", (now(), job_id))
-        try:
-            result = fn(JobContext(self, job_id), {**j["params"], "_project_id": j["project_id"], "_job_id": job_id})
-            self._update(job_id, status="succeeded", progress=1.0, message="완료", result=json.dumps(result, ensure_ascii=False, default=str))
-        except UserFacingError as e:
-            self._update(job_id, status="failed", message="실패", error=str(e))
-        except Exception as e:  # noqa: BLE001
-            from .ai.provider import AIError
+        from .ai import usage
 
-            msg = str(e) if isinstance(e, AIError) else f"처리 중 오류: {type(e).__name__}"
-            log.warning("job %s failed: %s", job_id, type(e).__name__)
-            log.debug("%s", traceback.format_exc())
-            self._update(job_id, status="failed", message="실패", error=msg)
+        with usage.collect() as calls:  # 성공·실패 모두 AI 사용량(토큰 수만)을 작업에 남긴다
+            try:
+                result = fn(JobContext(self, job_id), {**j["params"], "_kind": j["kind"], "_project_id": j["project_id"], "_job_id": job_id})
+                self._update(job_id, status="succeeded", progress=1.0, message="완료", result=json.dumps(result, ensure_ascii=False, default=str))
+            except UserFacingError as e:
+                self._update(job_id, status="failed", message="실패", error=str(e))
+            except Exception as e:  # noqa: BLE001
+                from .ai.provider import AIError
+
+                msg = str(e) if isinstance(e, AIError) else f"처리 중 오류: {type(e).__name__}"
+                log.warning("job %s failed: %s", job_id, type(e).__name__)
+                log.debug("%s", traceback.format_exc())
+                self._update(job_id, status="failed", message="실패", error=msg)
+            finally:
+                if calls:
+                    self._add_usage(job_id, calls)
+
+    def _add_usage(self, job_id: str, calls: list[dict[str, Any]]) -> None:
+        from .ai import usage
+
+        r = self.db.one("SELECT usage FROM jobs WHERE id=?", (job_id,))
+        prev = json.loads(r["usage"])["detail"] if r and r["usage"] else []  # 재시도한 작업은 이전 실행 사용량도 함께
+        self.db.execute("UPDATE jobs SET usage=? WHERE id=?", (json.dumps(usage.summarize(prev + calls), ensure_ascii=False), job_id))
 
 
 def _row(r) -> dict[str, Any]:
@@ -126,6 +139,7 @@ def _row(r) -> dict[str, Any]:
         "result": json.loads(r["result"]) if r["result"] else None,
         "params": json.loads(r["params"]) if r["params"] else {},
         "attempts": r["attempts"],
+        "usage": json.loads(r["usage"]) if "usage" in r.keys() and r["usage"] else None,
         "created_at": r["created_at"],
         "updated_at": r["updated_at"],
     }

@@ -32,6 +32,8 @@ class AIProfile:
     base_url: str = ""
     json_mode: str = "json_schema"  # compatible 전용: json_schema | json_object | prompt
     external: bool = True  # 외부 서버로 데이터가 나가는가(사내 설치형이면 false)
+    task_models: dict[str, str] = field(default_factory=dict)  # 작업별 모델(선택, 예: OPENAI_MODEL_DESIGN). 없으면 model
+    reasoning_effort: str = ""  # 추론 강도(선택, 지원 모델만). 비우면 모델 기본값
     missing: list[str] = field(default_factory=list)  # 사용 불가 사유(비어 있으면 사용 가능)
 
     @property
@@ -122,6 +124,22 @@ def validate(s: Settings) -> None:
         raise ConfigError(f"기본 AI 연결 '{s.ai_default}' 설정이 부족합니다: {', '.join(prof.missing)}")
 
 
+AI_TASK_NAMES = ("questions", "requirements", "design", "fp_candidates", "doc_extract")
+REASONING_EFFORTS = ("", "none", "minimal", "low", "medium", "high", "xhigh")
+
+
+def _task_options(p: AIProfile, prefix: str) -> None:
+    """작업별 모델(<PREFIX>_MODEL_<작업>)·추론 강도(<PREFIX>_REASONING_EFFORT). 둘 다 선택 사항."""
+    env = os.environ.get
+    for t in AI_TASK_NAMES:
+        v = env(f"{prefix}_MODEL_{t.upper()}", "").strip()
+        if v:
+            p.task_models[t] = v
+    p.reasoning_effort = env(f"{prefix}_REASONING_EFFORT", "").strip().lower()
+    if p.reasoning_effort not in REASONING_EFFORTS:
+        p.missing.append(f"{prefix}_REASONING_EFFORT 값 오류: {p.reasoning_effort}")
+
+
 def load_ai_profiles() -> dict[str, AIProfile]:
     """환경변수에서 AI 연결을 읽는다. 키(또는 주소)가 있는 연결만 등록한다. 모델명은 여기서만 읽는다."""
     env = os.environ.get
@@ -137,6 +155,7 @@ def load_ai_profiles() -> dict[str, AIProfile]:
                       model=model_of("openai", "OPENAI_MODEL"), base_url=env("OPENAI_BASE_URL", "").strip().rstrip("/"))
         if not p.model:
             p.missing.append("OPENAI_MODEL(모델명) 미설정")
+        _task_options(p, "OPENAI")
         out["openai"] = p
     if env("ANTHROPIC_API_KEY"):
         p = AIProfile(name="anthropic", kind="anthropic", label="Anthropic(Claude)", api_key=env("ANTHROPIC_API_KEY", ""),
@@ -155,5 +174,6 @@ def load_ai_profiles() -> dict[str, AIProfile]:
             p.missing.append(f"LLM_JSON_MODE 값 오류: {mode}")
         if not p.base_url.startswith(("http://", "https://")):
             p.missing.append("LLM_BASE_URL은 http(s) 주소여야 함")
+        _task_options(p, "LLM")
         out["compatible"] = p
     return out

@@ -94,3 +94,6 @@ node e2e/demo.cjs
 
 ## 8. 공통 디자인
 `docs/DESIGN_SYSTEM.md`를 따른다. 홈은 샘플 A·B 선택·다운로드 중심, 단계 바로가기·차이 안내는 펼쳐보기로 제공한다. 일반 앱과 Header·Workspace·표·시트를 공유한다.
+
+## 2026-10-30 엑셀 서식 개편 반영
+시연판 샘플 엑셀도 같은 생성기(`backend/app/excel/export.py`)로 만들어 새 산출내역서형 서식이 적용된다(`docs/EXCEL_FORMAT.md`). 샘플 검증(`demo_data.py --check`)은 견적 총액 Python 값을 '검산' 시트에서, 금액 수식을 '개발비_기준' 시트에서 확인하도록 바뀌었다. 시연판은 AI를 호출하지 않으므로 모델 변경(`docs/AI_COST.md`)의 영향이 없다.

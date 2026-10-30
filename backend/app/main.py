@@ -55,7 +55,15 @@ class AppCtx:
             return self.provider_for(project)
         if name not in self.ai.providers:
             raise UserFacingError(f"작업을 요청한 AI 연결 '{name}'을 지금 쓸 수 없습니다. 다른 연결로 바꾸지 않았습니다. 화면에서 다시 요청하세요.")
-        return self.ai.providers[name]
+        prov = self.ai.providers[name]
+        # 제출 때 기록한 모델·추론 설정과 지금 서버 설정이 다르면(배포로 모델 변경 등) 다른 모델로 몰래 실행하지 않는다
+        want = params.get("model")
+        if want:
+            task = "doc_extract" if params.get("document_id") else params.get("_kind", "")
+            now_model = prov.model_for(task) if task else prov.model
+            if now_model != want or prov.reasoning_effort != params.get("reasoning_effort", prov.reasoning_effort):
+                raise UserFacingError(f"작업을 요청한 뒤 AI 모델 설정이 바뀌었습니다(요청 {want} → 현재 {now_model}). 다른 모델로 바꾸지 않았습니다. 화면에서 다시 요청하세요.")
+        return prov
 
 
 PUBLIC = {"/api/health", "/api/auth/login", "/api/auth/me"}

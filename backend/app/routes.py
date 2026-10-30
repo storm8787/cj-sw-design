@@ -411,6 +411,9 @@ def run_ai(pid: str, task: str, body: AIIn, request: Request):
         raise InvalidData("외부 AI 전송 동의가 필요합니다. 전송 범위를 확인한 뒤 동의하세요.")
     params = {"feature_text": body.feature_text} if task == "requirements" else {}
     params["profile"] = prov.name  # 같은 입력이라도 AI 연결이 다르면 다른 작업
+    if prov.is_real_ai:
+        params["model"] = prov.model_for(task)  # 제출 때 모델·추론 설정 고정(대기·재시도 중 바뀌지 않음, 재사용도 같은 모델일 때만)
+        params["reasoning_effort"] = prov.reasoning_effort
     data_hash = hashlib.sha256(p.model_dump_json(exclude={"proposals", "updated_at"}).encode()).hexdigest()[:16]
     job, started = c.jobs.submit(task, pid, params, data_hash, force=body.force)
     return {"job": job, "started": started, "reused": not started}
@@ -570,7 +573,11 @@ def analyze_doc(pid: str, did: str, body: AnalyzeIn, request: Request):
     p, _ = c.store.get(pid)
     d = _doc(p, did)
     left = c.db.one("SELECT COUNT(*) AS n FROM doc_chunks WHERE project_id=? AND document_id=? AND analyzed=0", (pid, did))["n"]
-    job, started = c.jobs.submit("doc_analysis", pid, {"document_id": did, "profile": c.provider_for(p).name}, f"{d.sha256}:{left}", force=body.force)
+    prov = c.provider_for(p)
+    params = {"document_id": did, "profile": prov.name}
+    if prov.is_real_ai:
+        params |= {"model": prov.model_for("doc_extract"), "reasoning_effort": prov.reasoning_effort}
+    job, started = c.jobs.submit("doc_analysis", pid, params, f"{d.sha256}:{left}", force=body.force)
     return {"job": job, "started": started, "reused": not started}
 
 

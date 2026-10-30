@@ -123,8 +123,10 @@ def test_education_full_flow(client):
     cost_ws = wb["개발비_기준"]
     formulas = [c_.value for row in cost_ws.iter_rows() for c_ in row if c_.data_type == "f"]
     assert any("ROUNDDOWN" in f for f in formulas) and any("LN(" in f for f in formulas)
-    py_total = next(row[2].value for row in cost_ws.iter_rows() if row[0].value == "총액(부가세 포함)")
-    assert py_total == e2["result"]["money"]["total"]
+    total_row = next(row for row in cost_ws.iter_rows() if row[0].value == "총액(부가세 포함)")
+    assert total_row[9].data_type == "f"  # 총액은 수식(J열), Python 확인값은 검산 시트
+    chk = {row[0].value: row for row in wb["검산"].iter_rows() if row[0].value}
+    assert chk["개발비 총액"][3].value == e2["result"]["money"]["total"]
     for name in ("검토의견", "HW_SW추천"):
         assert any("미실행" in str(c_.value) for row in wb[name].iter_rows() for c_ in row), name
     prev = pj(c.get(f"/api/projects/{pid}/export/preview"))

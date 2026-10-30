@@ -20,6 +20,7 @@ const EDIT_STEP: Record<string, string> = {
   FP_정통법: "fp",
   개발비_기준: "fp",
   목표예산_시나리오: "fp",
+  참조_보정계수: "fp",
   검토의견: "review",
   HW_SW추천: "review",
   근거_변경이력: "sources",
@@ -68,7 +69,7 @@ export default function ExcelStep() {
       >
         {ro && <p className="muted small">시연판: 미리보기와 내려받는 파일은 서버 엑셀 생성기로 미리 만든 가상 샘플이며, 파일 첫 시트에 '샘플 시연판(가상 데이터)'으로 표시되어 있습니다.</p>}
         <p className="muted small">
-          금액·FP 칸은 Excel 수식과 Python 계산 확인값을 함께 넣습니다. 수식은 Excel에서 열 때 계산되며, '검산' 시트에서 두 값이 일치하는지 확인하세요. 아래 미리보기의 'ƒ 수식'은 파일을 열면 계산됩니다. 내용을 고치려면 각 시트의 편집 단계로 이동하세요.
+          산출내역서처럼 인쇄할 수 있는 서식(A4, 머리행 반복, 페이지 번호)입니다. 금액·FP 칸은 Excel 수식이며 Excel에서 열 때 계산됩니다. 같은 값을 Python으로 계산한 확인값은 '검산' 시트에 있으니 '일치'인지 확인하세요. 아래 미리보기의 'ƒ 수식'은 파일을 열면 계산됩니다. 내용을 고치려면 각 시트의 편집 단계로 이동하세요.
         </p>
         {err && <div className="error">{err}</div>}
         <div className="tabs">

@@ -347,6 +347,8 @@ export interface Job {
   error: string | null;
   result: Record<string, unknown> | null;
   created_at: string;
+  /** 실제 AI 호출 사용량(토큰 수만). 공급자가 주지 않은 값은 null(미측정) */
+  usage?: { calls: number; models: string[]; input_tokens: number | null; cached_tokens: number | null; output_tokens: number | null; reasoning_tokens: number | null; latency_ms: number; failed_calls: number } | null;
 }
 
 export interface AIConnection {

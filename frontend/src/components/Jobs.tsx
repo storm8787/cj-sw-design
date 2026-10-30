@@ -60,6 +60,11 @@ export function JobStatus({ job, running, onRetry, note }: { job: Job | null; ru
           <b>{{ queued: "대기", running: "진행 중", succeeded: "완료", failed: "실패", interrupted: "중단됨" }[job.status]}</b>{" "}
           {running && <progress value={job.progress} max={1} />} {job.message}
           {job.result?.mode ? <span className="muted"> · {job.result.mode === "ai" ? `AI 결과(${String(job.result.source || "")})` : "샘플 규칙 결과(AI 아님)"}</span> : null}
+          {job.usage && job.usage.calls > 0 && (
+            <div className="muted small" title="이 작업이 실제로 호출한 모델과 토큰 수(재요청 포함). 비용은 공급자 요금표 기준으로 계산하세요.">
+              호출 모델 {job.usage.models.join(", ") || "-"} · 호출 {job.usage.calls}회{job.usage.failed_calls ? `(실패 ${job.usage.failed_calls})` : ""} · 입력 {job.usage.input_tokens ?? "미측정"} · 출력 {job.usage.output_tokens ?? "미측정"} 토큰
+            </div>
+          )}
           {job.error && <div className="error">이유: {job.error} — 기존 데이터는 바뀌지 않았습니다.</div>}
           {(job.status === "failed" || job.status === "interrupted") && job.id !== "-" && (
             <button onClick={onRetry} disabled={running}>
