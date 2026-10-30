@@ -71,4 +71,6 @@ Health Check Path `/api/health`, Advanced → Disk 추가(Mount Path `/data`, 1G
 ## 5. 로컬 사전 점검(2026-10-30, VALIDATION §5-4)
 배포와 같은 설정(운영 모드·`PORT=10000`·root 소유 디스크·`COOKIE_SECURE=true`·HTTPS 프록시)으로 Docker 이미지를 실행해
 구상 기반·참고문서 기반 브라우저 E2E, 재배포 후 데이터 유지, 실제 OpenAI 호출(질문·문서 추출), 엑셀 다운로드를 확인했다.
-Render 위에서의 실제 배포는 사용자가 위 절차를 진행한 뒤 확인한다(미실시).
+Render 배포는 사용자가 위 절차로 진행해 운영 중이다(`https://sw-design-helper.onrender.com`, 사용자 전달). 작업 세션 환경에서는 이 주소에 접속할 수 없어 Render 위 동작을 직접 확인하지 못했다.
+- 제출·심사 기간에는 main 병합이 곧 자동 재배포이므로, 제출 커밋과 배포 커밋을 맞추는 절차를 `docs/SUBMISSION.md` §3에서 따른다.
+- 내 PC Docker 실행은 README '내 PC에서 실행하기'와 같다. `.env`에 `DATA_DIR`를 넣지 않는다(이미지 기본 `/data` 볼륨을 덮어쓰면 볼륨 밖에 저장됨, VALIDATION §10).

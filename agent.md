@@ -82,24 +82,27 @@ cd frontend && npm run dev                  # http://localhost:5173 (API는 8000
 # E2E (서버 실행 후)
 E2E_PASSWORD=<관리자 비밀번호> node e2e/flow.cjs   # 서버는 운영 모드(인증)로 실행
 E2E_PASSWORD=<관리자 비밀번호> node e2e/reference.cjs  # 참고문서 기반 흐름(2026-10-30 추가)
+E2E_PASSWORD=<관리자 비밀번호> node e2e/examples.cjs   # 첫 화면 '예제로 체험하기'(2026-10-30 추가)
 # 샘플 시연판(서버 불필요)
 cd frontend && npm run demo:data && npm run build:demo && cd .. && node e2e/demo.cjs
 # Docker 단일 서버
 docker build -t sw-design-helper . && docker run -p 8000:8000 -v swdata:/data --env-file .env sw-design-helper
 ```
-- 위 명령은 2026-10-29 모두 실제 실행해 확인했다(개발 서버는 화면 200·API 프록시 응답까지). `reference.cjs`·시연판 명령은 2026-10-30 확인. 결과는 `docs/VALIDATION.md`.
+- 위 명령은 2026-10-29 모두 실제 실행해 확인했다(개발 서버는 화면 200·API 프록시 응답까지). `reference.cjs`·`examples.cjs`·시연판 명령은 2026-10-30 확인. 결과는 `docs/VALIDATION.md`.
+- `.env`에 `DATA_DIR`를 넣지 않는다(Docker 이미지 기본 `/data` 볼륨을 덮어씀, VALIDATION §10).
 - 테스트 배포 안내는 `docs/DEPLOY.md`, 배포 후 사용자 테스트 순서는 `docs/USER_TEST.md`, 시연판은 `docs/DEMO.md`.
 - AI 모델 비교시험(실제 호출·비용 발생, 가상 자료만): `cd backend && uv run python -m tools.ai_compare --model <모델> --budget 0.5 --out <파일>` (2026-10-30 실행, `docs/AI_COST.md`).
 - 새 명령은 실행해 VALIDATION에 기록하기 전까지 '검증 전'으로 본다.
 
 ## 10. Git에 올리지 않는 것
 - API 키, `.env`, 업로드 원문, 실제 사업 데이터, SQLite DB, 생성된 엑셀, 로그, `DATA_DIR` 전체.
-- 테스트용 가상 문서는 `backend/tests/fixtures/`에 생성 코드로 둔다(실데이터 금지).
+- 테스트용 가상 문서는 `backend/tests/fixtures/`에 생성 코드로 둔다(실데이터 금지). 평가자·사용자용 가상 예제는 `examples/`에 둔다(새로 합성한 자료만).
 
 ## 11. 세션 시작·종료 절차
 - 시작: `docs/HANDOFF.md` → `docs/PROJECT_SPEC.md` → `docs/DECISIONS.md` 순서로 읽고 이어서 작업한다.
 - FP·금액 작업 전 `docs/FP_RULES.md`, 검증 작업 전 `docs/VALIDATION.md`를 읽는다.
 - 종료 전: 코드와 함께 `docs/HANDOFF.md`, 실행 안내(README), 테스트 기록(VALIDATION)을 갱신한다.
+- 화면 버튼·단계 이름, 실행 방법·포트, 환경변수, 예제 파일을 바꾸면 README·`docs/RUN_GUIDE.md`·`docs/EVALUATOR_GUIDE.md`·`examples/README.md`의 해당 문구도 함께 확인·수정한다.
 - 실제로 실행하지 않은 테스트·배포·실데이터 검증을 통과했다고 쓰지 않는다.
   막힌 경우 이유와 재개 절차를 HANDOFF에 남긴다.
 

@@ -212,3 +212,23 @@
 - 공식 요금표(차단됨, 2차 출처 단가 사용), 실제 청구액.
 - Microsoft Excel 화면·인쇄 미리보기, Render 환경변수 변경·운영 호출.
 - Anthropic·사내 LLM, 큰 문서 다구간 추출, 추론 강도 조정.
+
+## 10. README·평가자 실행 안내·예제 체험(D-025, 2026-10-30)
+실행 환경: 이 클라우드 세션(Linux). AI 키 없음(샘플 모드). 외부 AI 호출·유료 비교시험 없음.
+
+| 검사 | 결과 |
+|---|---|
+| 백엔드 pytest | **138 passed**(예제 목록·내려받기·경로 차단, 예제 B 출처·고유 조건, 예제 C 심어 둔 오류 탐지 3건 추가) |
+| 타입검사·일반 빌드·시연 빌드·`npm run demo:data` | 성공, '샘플 검증 통과'. 시연 데이터에 예제 파일 7종 포함 |
+| E2E(운영 모드 로컬 서버, 샘플 모드) | `examples`·`flow`·`reference`·`ux`·`demo` 통과 |
+| 예제 화면(`e2e/examples.cjs`) | 기본 접힘, '예제 값으로 시작'은 창만 채움(프로젝트·AI 요청 0), 내려받기 A·B·기대 목록·FP 엑셀, 완성 예시 두 번 눌러도 1개 생성·새로고침 재생성 없음, 예제 C 4종 업로드 → 검토 실행 결과, 390px 가로 넘침 없음, 키보드 접근 |
+| 예제 C 실제 검토 결과 | 차이 발견 5(SFR-005·SFR-099 누락, F8 가중치, F11 합계, 부가세)·확인 필요 8(9/10행 중복, 이윤, 장비, 불명확 문장, 연계 2, 성능 2)·확인 일치 4. `examples/C-review/expected_findings.md`와 일치 |
+| README Docker 경로 | `.env.example` 복사 → `docker build` → `docker run -d -p 8000:8000 -v swdata:/data --env-file .env …`: 로그인 200, 샘플 생성, 엑셀 200, 예제 내려받기 200, 컨테이너 재생성 후 프로젝트 유지. 이 세션은 TLS 검사 프록시 때문에 빌드에 `--network host`와 CA 비밀(`--secret id=extra_ca`)을 더했다 |
+| 발견·수정한 버그 | `.env.example`의 `DATA_DIR=./data`가 `--env-file`로 들어가 이미지 기본 `/data`를 덮어, 데이터가 볼륨 밖 `/app/backend/data`에 저장되었다 → 주석 처리 후 `/data` 저장·재생성 후 유지 확인 |
+| 소스 실행(bash, 깨끗한 복제본) | 커밋 c34d0e7을 새 위치에 복제 → `npm ci`·`npm run build` → `uv sync` → `SECRET_KEY`·`ADMIN_PASSWORD`만 주고 실행: 운영 모드, 화면 200(빌드 자동 인식), 로그인 200, `/api/examples` 목록·FP 엑셀 200, 경로 조작 404, 데이터는 `backend/data` |
+
+미검증:
+- Windows PowerShell 명령(`docs/RUN_GUIDE.md` 2-3절)은 실행하지 않았다(문법만 작성). Docker Desktop(Windows·macOS)도 실행하지 않았다.
+- 실제 앱(`https://sw-design-helper.onrender.com`)·시연판(`https://storm8787.github.io/cj-sw-design/`)은 이 세션에서 접속되지 않아(연결 실패) 운영 상태·모델 설정·새 화면 반영을 확인하지 못했다.
+- GitLab에서 상대 링크 표시, 공식 양식 PDF 분량, 시연영상은 확인·제작하지 않았다.
+- 참가 안내 원문은 첨부되지 않아 다시 확인하지 못했다(`docs/SUBMISSION.md`).

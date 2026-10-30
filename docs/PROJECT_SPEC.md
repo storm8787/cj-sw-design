@@ -25,7 +25,7 @@
 | SPEC-05 | 의존성 잠금파일, `.env.example` | `uv.lock`, `package-lock.json`, `.env.example` 존재 |
 | SPEC-06 | Redis·검색서버·벡터DB 등은 필요 검증 전 도입하지 않음 | 의존성 목록에 없음 |
 | SPEC-07 | GitHub Pages만으로 동작한다고 설명하지 않음 | README·agent.md에 별도 서버 필요 명시 |
-| SPEC-08 | 실제 유료 자원 생성·공개 배포는 별도 지시 시에만 | 배포 준비물만 제공, README 접속주소는 '미배포' |
+| SPEC-08 | 실제 유료 자원 생성·공개 배포는 별도 지시 시에만 | 배포 준비물 제공, 배포는 사용자가 진행(Render·Pages 주소는 README) |
 | SPEC-09 | 지침·인수인계 문서(agent.md, CLAUDE.md, docs/*) 유지 | 파일 존재, CLAUDE.md의 `@agent.md` import 동작 확인 기록 |
 
 ## 2. 핵심 데이터 (SPEC-10 ~ SPEC-19)
