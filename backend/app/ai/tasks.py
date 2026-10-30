@@ -251,6 +251,19 @@ def task_design(app, ctx: JobContext, params: dict[str, Any]) -> dict[str, Any]:
 
 
 # ---------------------------------------------------------------- FP 후보
+def fp_function_gaps(p: Project, out: S.FPOut) -> list[str]:
+    """코드 검증: 처리(EI/EO/EQ 또는 유형 미정) 후보가 하나도 연결되지 않은 기능. 데이터(ILF) 연결만으로는 그 기능의 처리를 센 것이 아니다.
+    (2026-10-30 비교시험: 저가 모델이 '교육 신청 취소' 같은 사용자 필수 기능의 처리 후보를 빠뜨리고 ILF 연결 때문에 연결 검사도 통과함)"""
+    covered = {fid for d in out.items if d.fp_type not in ("ILF", "EIF") for fid in d.function_ids}
+    covered |= {fid for it in p.fp_items if it.status != "excluded" and it.fp_type not in ("ILF", "EIF") for fid in it.function_ids}
+    gaps = [f for f in p.functions if f.status != "excluded" and f.id not in covered]
+    if not gaps:
+        return []
+    names = ", ".join(f"{f.id} {f.name}" for f in gaps[:15])
+    return [f"!처리(EI/EO/EQ) 후보가 연결되지 않은 기능 {len(gaps)}건: {names} — 기능마다 처리 후보를 넣으십시오. "
+            "다른 처리에 포함되는 기능이라면 그 후보의 function_ids에 이 기능 ID를 넣고 uncertainty에 이유를 쓰십시오. 불확실하면 fp_type=null로 두십시오."]
+
+
 def task_fp(app, ctx: JobContext, params: dict[str, Any]) -> dict[str, Any]:
     pid = params["_project_id"]
     p, _ = app.store.get(pid)
@@ -264,16 +277,16 @@ def task_fp(app, ctx: JobContext, params: dict[str, Any]) -> dict[str, Any]:
                 "<project_data>의 '기존FP'와 같은 처리는 새로 만들지 말고 같은 이름으로 쓰십시오(시스템이 기존 항목 갱신안으로 바꿉니다). "
                 "물리 테이블 수를 데이터 기능 수로 바꾸지 말고, 본인확인·중복확인·권한·파기·파일 다운로드는 독립된 업무 처리인지(경계 안 데이터를 바꾸거나 별도 출력인지) 근거를 rationale에 쓰십시오. "
                 "점수는 쓰지 마십시오. ID는 <project_data>에 있는 것만 쓰십시오.\n<project_data>\n" + json.dumps(project_brief(p, with_fp=True), ensure_ascii=False) + "\n</project_data>")
-        out, _ = call_ai(prov, "fp_candidates", user, S.FPOut, lambda o: lang_problems([d.name for d in o.items] + [d.rationale for d in o.items]))
+        out, fp_warns = call_ai(prov, "fp_candidates", user, S.FPOut, lambda o: lang_problems([d.name for d in o.items] + [d.rationale for d in o.items]) + fp_function_gaps(p, o))
     else:
-        out = sample.fp_candidates(p)
+        out, fp_warns = sample.fp_candidates(p), []
     from ..services.proposals import match_fp
 
     req_ids = {r.id for r in p.requirements}
     fn_ids = {f.id for f in p.functions}
     dat_ids = {d.id for d in p.data_entities}
     pending = [i for pr in p.proposals if pr.kind == "fp_candidates" and pr.status in ("pending", "partial") for i in pr.items if i.status in ("pending", "conflict") and i.op == "add"]
-    warnings: list[str] = []
+    warnings: list[str] = list(fp_warns)  # 재요청 후에도 남은 검증 경고(처리 후보 없는 기능 등)
     items: list[ProposalItem] = []
     taken: list[dict[str, Any]] = []  # 이번 응답에서 이미 만든 후보(응답 안 중복 방지)
     for i, d in enumerate(out.items):

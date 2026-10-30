@@ -42,3 +42,28 @@ def test_task_model_and_reasoning_env(monkeypatch):
     assert p.usable and p.task_models == {"design": "big-model"} and p.reasoning_effort == "low"
     monkeypatch.setenv("OPENAI_REASONING_EFFORT", "turbo")
     assert not load_ai_profiles()["openai"].usable
+
+
+def test_fp_candidates_retry_when_function_has_no_transaction_candidate(app_factory):
+    """처리 후보가 없는 기능(ILF 연결만 있음)은 코드가 찾아 1회 재요청하고, 그래도 남으면 경고로 남긴다."""
+    def item(name, t, fids):
+        return {"name": name, "fp_type": t, "rationale": "근거", "uncertainty": "", "det": None, "ftr_ret": None, "det_items": [], "ret_groups": [], "requirement_ids": [], "function_ids": fids, "data_ids": []}
+
+    prov = MockProvider()
+    app = app_factory(provider=prov)
+    c = client_for(app)
+    pid = c.post("/api/projects", json={"name": "x"}).json()["project"]["id"]
+    f1 = c.post(f"/api/projects/{pid}/items/functions", json={"data": {"name": "교육 신청"}}).json()["item"]["id"]
+    f2 = c.post(f"/api/projects/{pid}/items/functions", json={"data": {"name": "교육 신청 취소"}}).json()["item"]["id"]
+    miss = {"items": [item("교육 신청", "EI", [f1]), item("신청 정보", "ILF", [f1, f2])]}
+    fixed = {"items": [item("교육 신청", "EI", [f1]), item("교육 신청 취소", "EI", [f2]), item("신청 정보", "ILF", [f1, f2])]}
+    prov.responses = {"fp_candidates": [json.dumps(miss, ensure_ascii=False), json.dumps(fixed, ensure_ascii=False)]}
+    job = c.post(f"/api/projects/{pid}/ai/fp_candidates", json={"consent": True}).json()["job"]
+    assert job["usage"]["calls"] == 2  # 첫 응답의 누락을 코드가 찾아 1회 재요청
+    names = [i["data"]["name"] for i in c.get(f"/api/projects/{pid}").json()["project"]["proposals"][-1]["items"]]
+    assert "교육 신청 취소" in names
+    # 재요청 후에도 빠지면 경고(무한 재시도 없음)
+    prov.responses = {"fp_candidates": [json.dumps(miss, ensure_ascii=False)] * 2}
+    job = c.post(f"/api/projects/{pid}/ai/fp_candidates", json={"consent": True, "force": True}).json()["job"]
+    assert job["usage"]["calls"] == 2
+    assert any("처리(EI/EO/EQ) 후보가 연결되지 않은 기능" in w for w in job["result"]["warnings"])

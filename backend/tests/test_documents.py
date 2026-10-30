@@ -154,7 +154,7 @@ def test_ai_fake_ids_dropped_and_excess_questions(app_factory):
     q = {"key": "k", "topic": "t", "text": "질문", "why": "", "options": [{"value": "a", "label": "A", "recommended": True, "adds": []}], "recommended_value": "a", "recommended_reason": ""}
     qs = {"questions": [{**q, "key": f"k{i}", "text": f"질문{i}"} for i in range(8)]}
     fp = {"items": [{"name": "신청 등록", "fp_type": "EI", "rationale": "등록", "uncertainty": "", "det": -3, "ftr_ret": 1, "requirement_ids": ["REQ-001", "REQ-999"], "function_ids": ["FN-777"], "data_ids": []}]}
-    c, _ = mk(app_factory, {"questions": [json.dumps(qs, ensure_ascii=False)], "fp_candidates": [json.dumps(fp, ensure_ascii=False)]})
+    c, _ = mk(app_factory, {"questions": [json.dumps(qs, ensure_ascii=False)], "fp_candidates": lambda s, u: json.dumps(fp, ensure_ascii=False)})  # 처리 후보 없는 기능 재요청에도 같은 응답
     pid = c.post("/api/projects", json={"name": "x", "sample": "education"}).json()["project"]["id"]
     j = c.post(f"/api/projects/{pid}/ai/questions", json={}).json()["job"]
     assert len(j["result"]["added"]) == 5 and any("5개만" in w for w in j["result"]["warnings"])
