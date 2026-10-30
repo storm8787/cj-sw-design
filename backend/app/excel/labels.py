@@ -9,7 +9,7 @@ START_MODE = {"idea": "구상 기반", "document": "참고문서 기반", "revie
 BUDGET_MODE = {"none": "예산 미지정", "target": "개발비 지정(목표예산)"}
 VERDICT = {"match": "확인 일치", "diff": "차이 발견", "check": "확인 필요", "insufficient": "근거 부족"}
 METHOD = {"simple": "간이법", "detailed": "정통법"}
-CX_SOURCE = {"table": "복잡도표", "assumed": "가정 적용", "missing": "미확정(입력 누락)", "unclassified": "미분류", "excluded": "제외"}
+CX_SOURCE = {"table": "복잡도표(입력값)", "derived": "복잡도표(근거 목록 코드 집계)", "assumed": "가정 적용", "missing": "근거 부족(정통법 미완료)", "unclassified": "미분류", "excluded": "제외"}
 SYSTEM_KINDS = {"web": "웹", "mobile": "모바일", "desktop": "데스크톱", "server": "서버 프로그램", "batch": "배치 자동처리", "integration": "시스템 연계"}
 FP_TYPE_DESC = {
     "EI": "외부입력: 경계 밖에서 들어온 데이터로 내부 데이터를 등록·수정·삭제하는 처리 (예: 교육 신청 등록)",

@@ -116,7 +116,8 @@ class Screen(Tracked):
 class DataEntity(Tracked):
     name: str = ""
     description: str = ""
-    attributes: str = ""
+    attributes: str = ""  # 주요 항목(쉼표로 구분하면 FP 근거 집계에 쓰임)
+    subgroups: list[str] = Field(default_factory=list)  # 하위 그룹(예: 승인 이력) — 정통법 RET 근거
     relations: str = ""
     maintained_by: Literal["internal", "external", "unknown"] = "internal"
     personal_info: bool = False
@@ -149,8 +150,13 @@ class FPItem(Tracked):
     assumption_note: str = ""
     requirement_ids: list[str] = Field(default_factory=list)
     function_ids: list[str] = Field(default_factory=list)
-    data_ids: list[str] = Field(default_factory=list)
+    data_ids: list[str] = Field(default_factory=list)  # 트랜잭션은 참조·유지하는 데이터(FTR 근거), 데이터 기능은 해당 데이터
     duplicate_of: str = ""
+    # 업무 담당자가 '이 처리·데이터가 우리 사업에 있다'고 확인함(FP 기술 검토와 다름). 확인된 후보는 '추정 산정'에 들어간다.
+    scope_confirmed: bool = False
+    # 산정 근거(코드가 집계): DET 근거 데이터 요소 목록, 데이터 기능의 하위 그룹(RET 근거)
+    det_items: list[str] = Field(default_factory=list)
+    ret_groups: list[str] = Field(default_factory=list)
 
 
 # ---------------------------------------------------------------- 질문·가정
@@ -371,7 +377,7 @@ class ProposalItem(M):
     data: dict[str, Any] = Field(default_factory=dict)
     before: dict[str, Any] = Field(default_factory=dict)
     reason: str = ""
-    status: Literal["pending", "applied", "rejected", "conflict"] = "pending"
+    status: Literal["pending", "applied", "rejected", "conflict", "merged"] = "pending"  # merged: 이미 있는 같은 항목으로 연결(새로 추가 안 함)
     applied_id: str = ""
 
 

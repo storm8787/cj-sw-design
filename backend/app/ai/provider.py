@@ -252,7 +252,7 @@ class ProviderRegistry:
 
 
 # 구조화 출력 스키마에서 공급자별 지원이 제각각인 제약은 빼고 보낸다(응답은 Pydantic으로 다시 검증).
-_UNSUPPORTED_KEYS = ("maxItems", "minItems", "maxLength", "minLength", "pattern", "format", "minimum", "maximum", "exclusiveMinimum", "exclusiveMaximum")
+_UNSUPPORTED_KEYS = ("default", "maxItems", "minItems", "maxLength", "minLength", "pattern", "format", "minimum", "maximum", "exclusiveMinimum", "exclusiveMaximum")
 
 
 def strict_schema(model_cls) -> dict[str, Any]:

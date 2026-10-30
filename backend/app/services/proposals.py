@@ -27,6 +27,61 @@ def _resolve(value: Any, key_map: dict[str, str]) -> tuple[Any, list[str]]:
     return value, dropped
 
 
+def match_fp(data: dict[str, Any], candidates: list[dict[str, Any]]) -> tuple[dict[str, Any] | None, str | None]:
+    """새 FP 후보와 기존(또는 대기 중) 후보 비교. 반환: (대상, 'same'|'similar'|None).
+    same: 정규화한 이름이 같거나, 이름이 매우 비슷하고(0.8 이상) 연결 기능·요구사항·데이터가 겹침 → 기존 항목 갱신안.
+    similar: 이름이 비슷하고(0.6 이상) 연결이 겹침 → 비교 후 사용자가 판단. 유형이 서로 다르게 정해졌거나 처리 동사(등록·수정·삭제 등)가 다르면 별개."""
+    from difflib import SequenceMatcher
+
+    from ..fp.engine import _different_action, normalize_name
+
+    n = normalize_name(data.get("name", ""))
+    best: tuple[dict[str, Any] | None, str | None] = (None, None)
+    for c in candidates:
+        if data.get("fp_type") and c.get("fp_type") and data["fp_type"] != c["fp_type"]:
+            continue
+        cn = normalize_name(c.get("name", ""))
+        if n and n == cn:
+            return c, "same"
+        if _different_action(n, cn):
+            continue
+        overlap = bool(set(data.get("function_ids") or []) & set(c.get("function_ids") or [])) or bool(set(data.get("data_ids") or []) & set(c.get("data_ids") or [])) or (
+            bool(data.get("requirement_ids")) and set(data.get("requirement_ids") or []) == set(c.get("requirement_ids") or []))
+        if not overlap:
+            continue
+        r = SequenceMatcher(None, n, cn).ratio()
+        if r >= 0.8:
+            return c, "same"
+        if r >= 0.6 and best[1] is None:
+            best = (c, "similar")
+    return best
+
+
+DEDUP_COLLECTIONS = ("requirements", "functions", "data_entities", "interfaces", "screens", "workflows", "fp_items")
+
+
+def _same_existing(p: Project, collection: str, data: dict[str, Any]):
+    """적용 시 중복 방지: 같은 컬렉션에 이름(요구사항은 제목)이 같은 항목이 이미 있으면 그 항목. FP는 유형도 같아야 함."""
+    from ..fp.engine import normalize_name
+
+    if collection not in DEDUP_COLLECTIONS:
+        return None
+    field = "title" if collection == "requirements" else "name"
+    n = normalize_name(str(data.get(field, "")))
+    if not n:
+        return None
+    for it in getattr(p, collection):
+        if it.status == "excluded" or normalize_name(getattr(it, field, "")) != n:
+            continue
+        if collection == "fp_items" and data.get("fp_type") and it.fp_type and data["fp_type"] != it.fp_type:
+            continue
+        return it
+    return None
+
+
+OVERVIEW_FIELDS = ("purpose", "background", "users", "build_method", "org_environment", "boundary_name", "system_kinds", "idea_text")
+
+
 def apply_proposal(p: Project, m: Mutation, proposal_id: str, keys: list[str] | None, force: bool = False) -> dict[str, Any]:
     pr = next((x for x in p.proposals if x.id == proposal_id), None)
     if pr is None:
@@ -44,7 +99,32 @@ def apply_proposal(p: Project, m: Mutation, proposal_id: str, keys: list[str] | 
                 data[f], dropped = _resolve(data[f], key_map)
                 if dropped:
                     notes.append(f"{it.key}: 적용하지 않은 항목({', '.join(dropped)}) 연결은 빠짐")
-        if it.op == "add":
+        if it.collection == "overview":
+            # 사업 개요 갱신 제안: 비어 있는 칸만 채운다(사용자가 쓴 값은 강제 적용 때만 바꿈)
+            ov = p.overview
+            filled = {k: v for k, v in data.items() if k in OVERVIEW_FIELDS and (force or not getattr(ov, k))}
+            skipped = [k for k in data if k in OVERVIEW_FIELDS and k not in filled]
+            if not filled:
+                it.status = "conflict"
+                it.before = {k: getattr(ov, k) for k in data if k in OVERVIEW_FIELDS}
+                conflicts.append(it.key)
+                continue
+            before = {k: getattr(ov, k) for k in filled}
+            for k, v in filled.items():
+                setattr(ov, k, v)
+            m.log("overview", p.id, "update", before, filled)
+            if skipped:
+                notes.append(f"{it.key}: 이미 입력된 개요 항목({', '.join(skipped)})은 바꾸지 않음")
+            it.applied_id = "overview"
+        elif it.op == "add":
+            dup = _same_existing(p, it.collection, data)
+            if dup is not None:
+                # 이미 같은 항목이 있으면 새로 만들지 않고 기존 항목에 연결(변경안 재적용·중복 생성 방지)
+                it.status = "merged"
+                it.applied_id = dup.id
+                key_map[it.key] = dup.id
+                notes.append(f"{it.key}: 이미 있는 {dup.id}와 같아 새로 추가하지 않고 연결함")
+                continue
             obj = add_item(p, m, it.collection, data)
             it.applied_id = obj.id
             key_map[it.key] = obj.id
@@ -59,7 +139,7 @@ def apply_proposal(p: Project, m: Mutation, proposal_id: str, keys: list[str] | 
             it.applied_id = it.target_id
         it.status = "applied"
         applied.append(it.key)
-    statuses = {i.status for i in pr.items}
+    statuses = {"applied" if i.status == "merged" else i.status for i in pr.items}
     pr.status = "applied" if statuses <= {"applied", "rejected"} and "applied" in statuses else ("rejected" if statuses == {"rejected"} else ("partial" if "applied" in statuses else pr.status))
     m.log("proposals", pr.id, "apply", None, {"applied": applied, "conflicts": conflicts})
     return {"applied": applied, "conflicts": conflicts, "notes": notes, "status": pr.status}
@@ -73,7 +153,7 @@ def reject_proposal(p: Project, m: Mutation, proposal_id: str, keys: list[str] |
     for it in pr.items:
         if it.key in sel and it.status in ("pending", "conflict"):
             it.status = "rejected"
-    statuses = {i.status for i in pr.items}
+    statuses = {"applied" if i.status == "merged" else i.status for i in pr.items}
     pr.status = "rejected" if statuses == {"rejected"} else ("applied" if statuses <= {"applied", "rejected"} else "partial")
     m.log("proposals", pr.id, "reject", None, {"keys": sorted(sel)})
     return {"status": pr.status}

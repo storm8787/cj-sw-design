@@ -79,6 +79,8 @@ class DataDraft(B):
     personal_info: bool
     requirement_ids: list[str]
     reason: str
+    attributes: list[str] = Field(default_factory=list)  # 주요 항목(데이터 요소) 목록
+    subgroups: list[str] = Field(default_factory=list)  # 하위 그룹(예: 승인 이력)
 
 
 class IfDraft(B):
@@ -128,6 +130,8 @@ class FPDraft(B):
     requirement_ids: list[str]
     function_ids: list[str]
     data_ids: list[str]
+    det_items: list[str] = Field(default_factory=list)  # DET 근거 데이터 요소 목록(숫자 대신 목록 — 코드가 센다)
+    ret_groups: list[str] = Field(default_factory=list)  # 데이터 기능의 하위 그룹(RET 근거)
 
 
 class FPOut(B):

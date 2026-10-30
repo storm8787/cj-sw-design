@@ -17,6 +17,7 @@ from openpyxl.workbook.properties import CalcProperties
 from openpyxl.worksheet.worksheet import Worksheet
 
 from ..fp import engine
+from ..services import checklist as cl
 from ..fp.cost import PHASE_KEYS, PHASE_LABELS
 from ..fp.estimates import estimate_state
 from ..models import EstimateVersion, Project
@@ -189,12 +190,15 @@ def _overview(ws, p: Project, fp_sum, est, mode_label: str):
         ("산정 기준 버전", p.cost_settings.standard_id),
         ("장비 구매비", "개발비 합계에서 제외(HW·SW 추천은 설계 보조 정보)"),
         ("항목 출처 구분", _mode_text(p)),
-        ("확정 FP(간이법/정통법)", f"{fp_sum['simple']['total_fp']} / {fp_sum['detailed']['total_fp']}" + ("" if fp_sum["detailed"]["complete"] else " (정통법 입력 누락 있음)")),
-        ("미확정 FP 항목 수", fp_sum["counts"]["unconfirmed"]),
+        ("FP 산정 상태(간이법)", _basis_text(fp_sum, "simple")),
+        ("FP 산정 상태(정통법)", _basis_text(fp_sum, "detailed")),
+        ("집계 FP(간이법/정통법)", f"{fp_sum['simple']['total_fp']} / {fp_sum['detailed']['total_fp']} (확정 {fp_sum['counts']['confirmed_counted']}건 + 업무 확인 {fp_sum['counts']['scope_counted']}건)"),
+        ("업무 확인 전 FP 후보 수", fp_sum["counts"]["awaiting_scope"]),
         ("미분류 FP 항목 수", fp_sum["counts"]["unclassified"]),
         ("미답변 질문 수", sum(1 for q in p.questions if q.status == "open")),
         ("재검토 필요 항목 수", sum(1 for c in ("requirements", "functions", "fp_items") for it in getattr(p, c) if it.needs_review)),
-        ("적용 견적 버전", f"{est.id} {est.label} ({est.created_at})" if est else "없음"),
+        ("적용 견적 버전", (f"{est.id} {est.label} ({est.created_at}) · {(est.result.get('basis') or {}).get('label', '이전 형식 견적')}" + ("" if est.complete else " · 미완료(금액 없음)")) if est else "없음(기준 산정 미실행)"),
+        ("확인 목록", ", ".join(f"{k} {v}건" for k, v in cl.summarize(cl.checklist(p, fp_sum)).items() if v) or "남은 항목 없음"),
         ("데이터 버전(최종 수정)", p.updated_at),
     ]
     for k, v in rows:
@@ -215,6 +219,20 @@ def _overview(ws, p: Project, fp_sum, est, mode_label: str):
         put(ws, r, 2, f"{a.text} (이유: {a.reason})" if a.reason else a.text)
     page_setup(ws, False)
     ws.freeze_panes = "A5"
+
+
+def _basis_text(fp_sum, method: str) -> str:
+    b = fp_sum["basis"][method]
+    total = fp_sum[method]["total_fp"]
+    return f"{b['label']}" + (f" {total} FP" if b["basis"] != "empty" else "(집계 대상 0건)")
+
+
+def _status_text(it, row) -> str:
+    if it.status == "confirmed":
+        return "확정(기술 검토)"
+    if row.get("count_basis") == "scope":
+        return "업무 확인(추정)"
+    return L.STATUS[it.status] + (" · 업무 확인" if it.scope_confirmed else "")
 
 
 def _task(ws, p: Project):
@@ -239,7 +257,9 @@ def _requirements(ws, p: Project, fp_sum):
     for q in p.requirements:
         r += 1
         src = "; ".join(f"{srcs[s].file_name} {srcs[s].location}" if s in srcs else s for s in q.source_ids) or "사용자 입력"
-        vals = [q.id, L.KIND[q.kind], q.category, q.title, q.original_text, q.description, L.PRIORITY[q.priority], q.acceptance or "검수 기준 미정", src, L.ORIGIN[q.origin], L.STATUS[q.status], cov.get(q.id, {}).get("state", ""), q.review_reason if q.needs_review else ""]
+        fn_acc = [f"{f.id} {f.acceptance}" for f in p.functions if q.id in f.requirement_ids and f.acceptance and f.status != "excluded"]
+        acc = q.acceptance or (("요구사항 기준 미정 — 기능 검수 기준: " + "; ".join(fn_acc)) if fn_acc else "검수 기준 미정")
+        vals = [q.id, L.KIND[q.kind], q.category, q.title, q.original_text, q.description, L.PRIORITY[q.priority], acc, src, L.ORIGIN[q.origin], L.STATUS[q.status], cov.get(q.id, {}).get("state", ""), q.review_reason if q.needs_review else ""]
         for i, v in enumerate(vals, 1):
             put(ws, r, i, v)
     finish_table(ws, h, r, len(cols))
@@ -293,7 +313,7 @@ def _weight_formula(type_cell: str) -> str:
 
 def _fp_simple(ws, p: Project, std, fp_sum, checks):
     items = {it.id: it for it in p.fp_items}
-    r = title(ws, "기능점수 산정(간이법)", f"기준: {std['id']} · 가중치 ILF 7.5 / EIF 5.4 / EI 4.0 / EO 5.2 / EQ 3.9 (산정양식 수식) · '집계'=확정·경계 내 항목만")
+    r = title(ws, "기능점수 산정(간이법)", f"기준: {std['id']} · 가중치 ILF 7.5 / EIF 5.4 / EI 4.0 / EO 5.2 / EQ 3.9 (산정양식 수식) · '집계'=확정 또는 업무 확인·경계 내·중복 아님 · 간이법은 DET·FTR 없이 유형만으로 계산 · 상태: {_basis_text(fp_sum, 'simple')}")
     cols = ["FP ID", "애플리케이션", "세부 업무", "단위프로세스·데이터명", "설명", "FP 유형", "분류 근거", "요구사항ID", "상태", "집계", "가중치(수식)", "가중치(Python)", "점수(수식)", "점수(Python)", "확인 사항"]
     header(ws, r, cols, [9, 14, 14, 24, 26, 9, 30, 13, 8, 6, 10, 10, 10, 10, 40])
     h = r
@@ -302,7 +322,7 @@ def _fp_simple(ws, p: Project, std, fp_sum, checks):
         r += 1
         it = items[row["id"]]
         typ = row["fp_type"] or "미분류"
-        vals = [it.id, it.application, it.business, it.name, it.description, typ, it.rationale or "근거 미기재", it.requirement_ids, L.STATUS[it.status], "Y" if row["counted"] else "N"]
+        vals = [it.id, it.application, it.business, it.name, it.description, typ, it.rationale or "근거 미기재", it.requirement_ids, _status_text(it, row), "Y" if row["counted"] else "N"]
         for i, v in enumerate(vals, 1):
             put(ws, r, i, v)
         put(ws, r, 11, _weight_formula(f"F{r}"), fmt="0.0", formula=True)
@@ -312,10 +332,13 @@ def _fp_simple(ws, p: Project, std, fp_sum, checks):
         put(ws, r, 15, "\n".join(row["issues"]))
     last = r
     r += 1
-    put(ws, r, 12, "합계(확정)", bold=True)
+    put(ws, r, 12, "합계(집계)", bold=True)
     put(ws, r, 13, f"=SUM(M{first}:M{last})" if last >= first else "=0", fmt="0.0", formula=True)
     put(ws, r, 14, Decimal(fp_sum["simple"]["total_fp"]), fmt="0.0", bold=True)
     checks.append({"label": "간이법 총 FP", "sheet": ws.title, "formula_cell": f"M{r}", "python": float(Decimal(fp_sum["simple"]["total_fp"])), "fmt": "0.0"})
+    r += 1
+    put(ws, r, 1, "간이법 산정 상태", bold=True)
+    put(ws, r, 2, _basis_text(fp_sum, "simple") + " — " + ("; ".join(fp_sum["basis"]["simple"]["reasons"]) or "남은 항목 없음"))
     r += 2
     put(ws, r, 1, "유형별 집계", bold=True)
     r += 1
@@ -344,7 +367,7 @@ def _detailed_weight_formula(t: str, cx: str) -> str:
 def _fp_detailed(ws, p: Project, std, fp_sum, checks):
     items = {it.id: it for it in p.fp_items}
     d = fp_sum["detailed"]
-    sub = f"기준: {std['id']} · 복잡도는 산정양식 VBA FPR() 표, 가중치는 FPV() 표 · " + ("모든 집계 항목 입력 완료" if d["complete"] else f"입력 누락 {len(d['missing_ids'])}건 → 정통법 미확정")
+    sub = f"기준: {std['id']} · 복잡도는 산정양식 VBA FPR() 표, 가중치는 FPV() 표 · DET·FTR/RET은 입력값 또는 근거 목록을 코드가 집계 · 상태: {_basis_text(fp_sum, 'detailed')}"
     r = title(ws, "기능점수 산정(정통법)", sub)
     cols = ["FP ID", "단위프로세스·데이터명", "FP 유형", "FTR/RET", "DET", "복잡도", "복잡도 판정", "상태", "집계", "가중치(수식)", "가중치(Python)", "점수(수식)", "점수(Python)", "누락 정보·가정"]
     header(ws, r, cols, [9, 26, 9, 9, 7, 8, 14, 8, 6, 11, 11, 10, 10, 44])
@@ -353,12 +376,11 @@ def _fp_detailed(ws, p: Project, std, fp_sum, checks):
     for row in fp_sum["items"]:
         r += 1
         it = items[row["id"]]
-        missing = []
-        if row["fp_type"] and row["complexity_source"] == "missing":
-            missing.append(next((i for i in row["issues"] if i.startswith("정통법 미확정")), "입력 누락"))
-        if row["complexity_source"] == "assumed":
-            missing.append(f"가정: {it.assumption_note or '사유 미기재'}")
-        vals = [it.id, it.name, row["fp_type"] or "미분류", it.ftr_ret if it.ftr_ret is not None else "미입력", it.det if it.det is not None else "미입력", row["complexity"] or "", L.CX_SOURCE[row["complexity_source"]], L.STATUS[it.status], "Y" if row["counted"] else "N"]
+        missing = [row["detailed_note"]] if row.get("detailed_note") else []
+        derived = row["complexity_source"] == "derived"
+        ftr_v = row.get("ftr_ret_used") if row.get("ftr_ret_used") is not None else "근거 없음"
+        det_v = row.get("det_used") if row.get("det_used") is not None else "근거 없음"
+        vals = [it.id, it.name, row["fp_type"] or "미분류", ftr_v, det_v, row["complexity"] or "", L.CX_SOURCE[row["complexity_source"]] + (" *" if derived else ""), _status_text(it, row), "Y" if row["counted"] else "N"]
         for i, v in enumerate(vals, 1):
             put(ws, r, i, v)
         put(ws, r, 10, _detailed_weight_formula(f"C{r}", f"F{r}"), formula=True)
@@ -368,13 +390,17 @@ def _fp_detailed(ws, p: Project, std, fp_sum, checks):
         put(ws, r, 14, "\n".join(missing) or "-")
     last = r
     r += 1
-    put(ws, r, 11, "합계(확정·입력완료)", bold=True)
+    put(ws, r, 11, "합계(집계·복잡도 판정됨)", bold=True)
     put(ws, r, 12, f"=SUM(L{first}:L{last})" if last >= first else "=0", formula=True)
     put(ws, r, 13, int(d["total_fp"]), bold=True)
     checks.append({"label": "정통법 총 FP", "sheet": ws.title, "formula_cell": f"L{r}", "python": int(d["total_fp"]), "fmt": "0"})
     r += 1
-    put(ws, r, 1, "정통법 상태", bold=True)
-    put(ws, r, 2, "확정 가능" if d["complete"] else f"미확정 — 누락 {', '.join(d['missing_ids'])}")
+    put(ws, r, 1, "정통법 산정 상태", bold=True)
+    put(ws, r, 2, _basis_text(fp_sum, "detailed") + " — " + ("; ".join(fp_sum["basis"]["detailed"]["reasons"]) or "남은 항목 없음"))
+    if d.get("derived_ids"):
+        r += 1
+        put(ws, r, 1, "*코드 집계", bold=True)
+        put(ws, r, 2, f"{len(d['derived_ids'])}건은 기능의 입력·출력 항목·데이터 항목 목록에서 코드가 DET·FTR/RET을 셈(FP_RULES §4-1 시스템 규칙) — 근거 목록을 검토하세요.")
     finish_table(ws, h, last, len(cols))
 
 
@@ -392,13 +418,19 @@ def _cost(ws, p: Project, est: EstimateVersion, checks) -> dict[str, str]:
     r = title(ws, "개발비 산정(기준 산정)", sub)
     header(ws, r, ["구분", "값(수식)", "Python 확인값", "근거·설명"], [30, 20, 20, 80])
     cells: dict[str, str] = {}
+    basis = est.result.get("basis") or {}
     if not m.get("complete"):
         r += 1
-        c = put(ws, r, 1, "미완료 견적")
+        c = put(ws, r, 1, "미산정(금액 없음)" if basis.get("basis") == "empty" or Decimal(str(m.get("total_fp", "0"))) == 0 else "미완료 견적")
         c.font = WARN_FONT
         put(ws, r, 4, "\n".join(est.warnings))
         page_setup(ws, False)
         return cells
+    if basis.get("basis") in ("partial", "estimated"):
+        r += 1
+        c = put(ws, r, 1, f"산정 상태: {basis.get('label')}")
+        c.font = WARN_FONT
+        put(ws, r, 4, "; ".join(basis.get("reasons", [])) + " — 완료된 확정 견적이 아닙니다.")
 
     def row(key: str, label: str, formula: str | None, py: Any, fmt: str, note: str):
         nonlocal r
@@ -413,7 +445,7 @@ def _cost(ws, p: Project, est: EstimateVersion, checks) -> dict[str, str]:
         cells[key] = f"B{r}"
         return f"B{r}"
 
-    fp_cell = row("fp", "총 기능점수(FP)", None, Decimal(m["total_fp"]), "0.0#", f"{L.METHOD[est.method]} 확정 항목 {len(est.fp_snapshot)}건 합계(FP 시트 참조)")
+    fp_cell = row("fp", "총 기능점수(FP)", None, Decimal(m["total_fp"]), "0.0#", f"{L.METHOD[est.method]} 집계 항목 {len(est.fp_snapshot)}건 합계(산정 시점 스냅샷)")
     price_cell = row("price", "FP당 단가(원)", None, m["unit_price"], WON, std["unit_price"]["basis"] + (" / 사용자 입력 단가" if m.get("unit_price_source") == "user" else ""))
     sz = row("size", "규모 보정계수", f"=IF({fp_cell}<500,1.28,IF({fp_cell}>3000,1.153,0.4057*(LN({fp_cell})-7.1978)^2+0.8878))", Decimal(m["size_factor"]), RATIO, std["size_factor"]["basis"])
     fcells = []
@@ -568,18 +600,14 @@ def _trace(ws, p: Project, changes: list[dict[str, Any]], fp_sum):
         for i, v in enumerate([ref.id, ref.document_id, dec, ref.location, ref.text, f"{ref.modified_text} / 이유: {ref.reason}" if ref.decision == "modify" else ref.reason, ref.org_specific, ref.applied_requirement_id], 1):
             put(ws, r, i, v)
     r += 2
-    put(ws, r, 1, "■ 미확정 사항", bold=True)
+    put(ws, r, 1, "■ 확인 목록(업무 결정·설계 가정·외부 확인·FP 검토·미실행)", bold=True)
     r += 1
     header(ws, r, ["구분", "ID", "내용"])
-    pend = []
-    pend += [("미답변 질문", q.id, q.text) for q in p.questions if q.status == "open"]
-    pend += [("나중에 결정", q.id, f"{q.text} → 권장안: {q.recommended_value} ({q.recommended_reason})") for q in p.questions if q.status == "deferred"]
-    pend += [("미확정 FP", i, "확정 전 기준 견적 제외") for i in fp_sum["unconfirmed_ids"]]
-    pend += [("미분류 FP", i, "FP 유형 미지정") for i in fp_sum["unclassified_ids"]]
+    pend = [(x["category"], x["ref"], x["text"]) for x in cl.checklist(p, fp_sum)]
+    pend += [("FP 업무 확인 전", i, "업무 확인 전 후보 — 집계 제외") for i in fp_sum["basis"]["simple"]["pending"]["not_confirmed"]]
     pend += [("FP 미연결 요구사항", i, "기능 요구사항에 연결된 FP 없음") for i in fp_sum["coverage"]["unlinked_functional"]]
     pend += [("재검토 필요", it.id, it.review_reason) for c in ("requirements", "functions", "fp_items", "screens", "data_entities", "interfaces") for it in getattr(p, c) if it.needs_review]
-    pend += [("연계 미확인", i.id, f"{i.name}: 상대 시스템 연계 가능성 미확인") for i in p.interfaces if i.verified == "unverified"]
-    for kind, iid, text in pend or [("-", "-", "미확정 사항 없음")]:
+    for kind, iid, text in pend or [("-", "-", "확인할 항목 없음")]:
         r += 1
         for i, v in enumerate([kind, iid, text], 1):
             put(ws, r, i, v)

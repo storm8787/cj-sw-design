@@ -18,7 +18,7 @@ from .fp import estimates as est
 from .main import AppCtx
 from .models import COLLECTIONS, CostSettings, DocumentMeta, Extraction, Overview, ReferenceItem, TaskDraft, TechInputs
 from .review.review import run_review
-from .services import backup, proposals, samples, status, taskdraft
+from .services import backup, overview_suggest, proposals, samples, status, taskdraft
 from .store import InvalidData, NotFound, add_item, delete_item, find_item, next_id, now, update_item
 from .tech import fetch as tfetch
 from .tech import recommend as trec
@@ -317,6 +317,23 @@ def create_scenario(pid: str, eid: str, body: ScenarioIn, request: Request):
 
     _, _, sc = c.store.mutate(pid, actor(c), fn)
     return {"scenario": sc.model_dump(), **ok_project(c, pid)}
+
+
+# ---------------------------------------------------------------- 사업 개요 빈 항목 갱신 제안(규칙 기반, AI 호출 없음)
+@router.post("/projects/{pid}/overview/suggest")
+def suggest_overview(pid: str, request: Request):
+    c = C(request)
+
+    def fn(p, m):
+        from .ai.tasks import _add_proposal
+
+        items = overview_suggest.suggestions(p)
+        if not items:
+            return None
+        return _add_proposal(p, m, "overview", "system", "", f"사업 개요 빈 항목 갱신 제안 {len(items)}건(이미 쓴 칸은 바꾸지 않음)", items, [])
+
+    _, _, pr = c.store.mutate(pid, actor(c), fn)
+    return {"proposal_id": pr.id if pr else None, "message": "" if pr else "채울 수 있는 빈 항목이 없거나 근거 자료가 없습니다.", **ok_project(c, pid)}
 
 
 # ---------------------------------------------------------------- 과업지시서 초안

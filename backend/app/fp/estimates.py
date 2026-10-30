@@ -35,24 +35,34 @@ def compute(p: Project, std: dict[str, Any], method: str | None = None) -> dict[
     method = method or p.cost_settings.method
     results = engine.evaluate_items(p, std)
     fp_res = engine.calc_simple(results) if method == "simple" else engine.calc_detailed(results)
+    basis = engine.estimate_basis(results, engine.coverage(p, results), method)
     total_fp = Decimal(fp_res["total_fp"])
     warnings: list[str] = []
     complete = True
-    unconfirmed = [r.id for r in results if r.status in ("draft", "review")]
-    if unconfirmed:
-        warnings.append(f"미확정 FP 항목 {len(unconfirmed)}건은 기준 산정에서 제외됨: {', '.join(unconfirmed[:20])}")
-    unclassified = [r.id for r in results if r.complexity_source == "unclassified"]
-    if unclassified:
-        warnings.append(f"미분류 항목 {len(unclassified)}건: {', '.join(unclassified[:20])}")
+    pend = basis["pending"]
+    if basis["basis"] == "empty":
+        complete = False
+        warnings.append("미산정: 집계할 FP가 0건이라 금액을 계산하지 않았습니다(0원은 견적이 아님). FP 후보의 업무 확인부터 진행하세요.")
+    if pend["not_confirmed"]:
+        warnings.append(f"업무 확인 전 후보 {len(pend['not_confirmed'])}건은 집계에서 빠짐: {', '.join(pend['not_confirmed'][:20])}")
+    if pend["unclassified"]:
+        warnings.append(f"유형 미분류 {len(pend['unclassified'])}건은 집계에서 빠짐: {', '.join(pend['unclassified'][:20])}")
+    if pend["duplicates"]:
+        warnings.append(f"중복 의심 {len(pend['duplicates'])}건은 해결 전 집계에서 빠짐: {', '.join(pend['duplicates'][:20])}")
+    if pend["unlinked_requirements"]:
+        warnings.append(f"FP가 연결되지 않은 기능 요구사항 {len(pend['unlinked_requirements'])}건: {', '.join(pend['unlinked_requirements'][:20])}")
+    if basis["scope_only_ids"]:
+        warnings.append(f"업무 확인만 한 항목 {len(basis['scope_only_ids'])}건 포함(FP 기술 검토 전 — 추정): {', '.join(basis['scope_only_ids'][:20])}")
     if method == "detailed" and fp_res["missing_ids"]:
         complete = False
-        warnings.append(f"정통법 DET/FTR/RET 누락 {len(fp_res['missing_ids'])}건 → 확정 산정 불가: {', '.join(fp_res['missing_ids'][:20])}")
+        warnings.append(f"정통법 근거 부족 {len(fp_res['missing_ids'])}건 → 정통법 산정 미완료(입력·출력·데이터 항목을 보완하면 코드가 셈): {', '.join(fp_res['missing_ids'][:20])}")
     if method == "detailed" and fp_res["assumed_ids"]:
         warnings.append(f"가정 복잡도 적용 {len(fp_res['assumed_ids'])}건: {', '.join(fp_res['assumed_ids'][:20])}")
-    if total_fp == 0:
-        complete = False
-        warnings.append("확정된 FP 항목이 없습니다.")
+    if method == "detailed" and fp_res.get("derived_ids"):
+        warnings.append(f"DET·FTR/RET을 근거 목록에서 코드로 집계한 항목 {len(fp_res['derived_ids'])}건(근거 목록 검토 권장)")
     money = cost.compute_cost(std, p.cost_settings, p.overview, total_fp)
+    if basis["basis"] == "empty":
+        money["complete"] = False  # 0FP로 계산한 0원을 정상 금액처럼 보이지 않게 함
     if not money.get("complete"):
         complete = False
     warnings += money.get("warnings", [])
@@ -64,6 +74,7 @@ def compute(p: Project, std: dict[str, Any], method: str | None = None) -> dict[
     return {
         "method": method,
         "fp": fp_res,
+        "basis": basis,
         "money": money,
         "complete": complete,
         "warnings": warnings,
@@ -84,13 +95,13 @@ def create_estimate(p: Project, m: Mutation, std: dict[str, Any], label: str, mo
         phases_snapshot={"phases": p.overview.phases.model_dump(), "ratios": p.overview.phase_ratios.model_dump()},
         fp_snapshot=res["fp_snapshot"],
         input_hash=res["input_hash"],
-        result={"fp": res["fp"], "money": res["money"]},
+        result={"fp": res["fp"], "money": res["money"], "basis": res["basis"]},
         warnings=res["warnings"],
         complete=res["complete"],
         mode=mode,
     )
     p.estimates.append(est)
-    m.log("estimates", est.id, "add", None, {"label": est.label, "method": est.method, "total": res["money"].get("total"), "complete": est.complete})
+    m.log("estimates", est.id, "add", None, {"label": est.label, "method": est.method, "total": res["money"].get("total"), "complete": est.complete, "basis": res["basis"]["basis"]})
     return est
 
 
@@ -106,6 +117,10 @@ def add_scenario(p: Project, m: Mutation, est_id: str, target_amount: int, inclu
     if not est.complete:
         raise cost.CostError("미완료(미확정 포함) 견적에는 목표예산 시나리오를 만들 수 없습니다.")
     result = cost.target_scenario(est.result["money"], target_amount, includes_vat)
+    base_basis = (est.result.get("basis") or {}).get("basis", "")
+    result["base_basis"] = base_basis  # 기준 견적의 성격(부분·추정이면 시나리오도 그 위에서 만든 참고값)
+    if base_basis in ("partial", "estimated"):
+        result.setdefault("warnings", []).append(f"기준 견적이 '{engine.BASIS_LABEL[base_basis]}' 상태입니다 — 이 시나리오도 그 기준에서 만든 참고값입니다.")
     sc = Scenario(
         id=next_id(p, "SCN"),
         created_at=now(),
