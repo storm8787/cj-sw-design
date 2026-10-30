@@ -155,8 +155,27 @@ td.actions { white-space: nowrap; }
 .compare { background: var(--info-bg); padding: 6px; border-radius: 6px; }
 .sheet-preview { max-height: 60vh; overflow: auto; border: 1px solid var(--line); }
 .formula { color: var(--brand); font-style: italic; }
+fieldset.edit-area { border: none; padding: 0; margin: 0; min-width: 0; }
+/* 정적 시연판(build:demo) 전용 표시 */
+.sticky-head { position: sticky; top: 0; z-index: 10; }
+.sticky-head .top { position: static; }
+.demo-banner { background: #fff4d6; color: #4a3300; padding: 6px 20px; font-size: 0.9rem; font-weight: 600; border-bottom: 1px solid #e8cf8a; }
+@media (prefers-color-scheme: dark) { .demo-banner { background: #3a2f14; color: #ffe2a0; border-color: #5a4a20; } }
+.mode-demo { background: #ffffff; color: #1f4e8c; font-weight: 600; }
+.link-light { color: #fff; }
+.demo-note { background: var(--warn-bg); color: var(--warn); border-radius: 8px; padding: 6px 12px; margin: 6px 0; font-size: 0.9em; }
+.demo-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr)); gap: 12px; }
+.demo-card-title { font-size: 1.05rem; color: var(--brand); }
+.demo-card ul { margin: 4px 0 8px; padding-left: 20px; }
+.demo-steps { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+.demo-steps a { padding: 4px 9px; border: 1px solid var(--line); border-radius: 8px; text-decoration: none; font-size: 0.85em; }
 @media (max-width: 700px) {
   main { padding: 10px; }
+  .demo-banner { padding: 6px 10px; font-size: 0.82rem; }
+  /* 좁은 화면: 넓은 표는 열을 짓누르지 않고 표 안에서 가로 스크롤 */
+  table.grid { display: block; overflow-x: auto; }
+  table.grid th, table.grid td { min-width: 7em; }
+  table.grid td:first-child, table.grid th:first-child { min-width: 4.5em; }
   .steps a { padding: 6px 8px; font-size: 0.9em; }
   .top { flex-wrap: wrap; }
 }

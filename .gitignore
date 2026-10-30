@@ -240,6 +240,9 @@ data/
 # 프런트엔드
 node_modules/
 frontend/dist/
+# 정적 시연판 빌드 결과와 생성 샘플(빌드 때 backend/tools/demo_data.py로 생성, 커밋하지 않음)
+frontend/dist-demo/
+frontend/demo-public/demo-data/
 # E2E 산출물
 e2e/output/
 test-results/

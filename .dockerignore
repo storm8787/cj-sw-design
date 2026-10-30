@@ -14,3 +14,5 @@ e2e/output
 *.hwpx
 *.pdf
 *.docx
+frontend/dist-demo
+frontend/demo-public/demo-data
