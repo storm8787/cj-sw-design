@@ -89,6 +89,19 @@ def test_review_without_docs_is_insufficient_not_error(client):
     assert p["reviews"] and all(x["verdict"] == "insufficient" for x in p["reviews"])
 
 
+def test_vendor_docs_do_not_ask_for_item_extraction(client):
+    """업체 문서는 검토에서 바로 대조 — '분석이 끝나지 않은 문서' 안내는 참고문서에만(2026-10-30 시연 데이터 생성 중 발견)."""
+    c = client
+    pid = c.post("/api/projects", json={"name": "검토", "overview": {"start_mode": "review"}}).json()["project"]["id"]
+    d = up(c, pid, "과업지시서.txt", TASK.encode(), "vendor_task")
+    assert d["extraction"]["analysis_status"] == "not_started" and d["extraction"]["chunks_total"] > 0
+    nxt = c.get(f"/api/projects/{pid}").json()["status"]["next_steps"]
+    assert not any("분석이 끝나지 않은" in n["text"] for n in nxt)
+    up(c, pid, "참고.txt", "SFR-001 교육 신청 기능을 제공하여야 한다\n".encode(), "reference")
+    nxt = c.get(f"/api/projects/{pid}").json()["status"]["next_steps"]
+    assert any("분석이 끝나지 않은" in n["text"] for n in nxt)
+
+
 def test_tech_recommend_onprem_and_cloud(client):
     c = client
     pid = c.post("/api/projects", json={"name": "t", "sample": "education"}).json()["project"]["id"]

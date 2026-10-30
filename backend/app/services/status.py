@@ -28,7 +28,8 @@ def project_status(p: Project, std: dict[str, Any]) -> dict[str, Any]:
         step("overview", "FP 측정 대상 애플리케이션 이름(경계)을 정하세요.")
     if ov.start_mode == "document" and not p.documents:
         step("sources", "참고문서를 올리세요.")
-    if any(d.extraction.analysis_status in ("not_started", "partial") and d.extraction.chunks_total for d in p.documents):
+    # 항목 추출(유지·수정·제외)은 참고문서 대상. 업체 문서는 검토 단계에서 바로 대조하므로 추출을 요구하지 않는다.
+    if any(d.kind == "reference" and d.extraction.analysis_status in ("not_started", "partial") and d.extraction.chunks_total for d in p.documents):
         step("sources", "분석이 끝나지 않은 문서가 있습니다.")
     if sum(1 for r in p.reference_items if r.decision == "pending"):
         step("sources", "참고문서 항목의 유지/수정/제외를 결정하세요.")
