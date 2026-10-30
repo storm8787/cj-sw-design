@@ -48,6 +48,10 @@ def checklist(p: Project, fp: dict[str, Any] | None = None) -> list[dict[str, st
             continue
         for s in _snippets(" ".join([f.inputs, f.outputs, f.rules, f.exceptions, f.permissions])):
             add("업무 결정 필요", f.id, f"{f.name}: {s}", "design")
+    waiting = [it for it in p.fp_items if it.status in ("draft", "review") and not it.scope_confirmed]
+    if waiting:
+        ids = ", ".join(it.id for it in waiting[:10]) + (" 외" if len(waiting) > 10 else "")
+        add("업무 결정 필요", ids, f"FP 후보 {len(waiting)}건이 우리 사업에 있는 처리·자료인지 답하지 않음(업무 확인: 있음/없음/모름)", "fp")
     for a in p.assumptions:
         if a.status != "excluded":
             add("설계 가정(채택)", a.id, a.text + (f" (이유: {a.reason})" if a.reason else ""), "sources")

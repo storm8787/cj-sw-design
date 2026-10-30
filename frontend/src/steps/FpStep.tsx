@@ -4,8 +4,8 @@ import { EditableTable, type Col } from "../components/EditableTable";
 import { JobStatus, useJobRunner } from "../components/Jobs";
 import { Proposals } from "../components/Proposals";
 import { ActionButton, Badge, EditArea, Field, Help, Section, Warn, useProject } from "../components/ui";
-import { CX_SOURCE, num, won } from "../labels";
-import type { CostSettings, Estimate, FPSummary, ProjectResponse, Row } from "../types";
+import { BASIS_BADGE, BASIS_HELP, CX_SOURCE, PLAIN_TYPE, PLAIN_TYPE_LABEL, num, won } from "../labels";
+import type { CostSettings, Estimate, EstimateBasis, FPItem, FPSummary, FPSummaryItem, ProjectResponse, Row } from "../types";
 
 const TYPE_OPTS: [string, string][] = [["__null", "미분류"], ["EI", "EI 외부입력"], ["EO", "EO 외부출력"], ["EQ", "EQ 외부조회"], ["ILF", "ILF 내부논리파일"], ["EIF", "EIF 외부연계파일"]];
 
@@ -23,8 +23,11 @@ export default function FpStep() {
     { key: "application", label: "애플리케이션", width: 100 },
     { key: "fp_type", label: "유형", type: "select", options: TYPE_OPTS, width: 110 },
     { key: "rationale", label: "분류 근거", type: "textarea" },
-    { key: "ftr_ret", label: "FTR/RET", type: "number", width: 60 },
-    { key: "det", label: "DET", type: "number", width: 55 },
+    { key: "scope_confirmed", label: "업무 확인", type: "bool", width: 70 },
+    { key: "det_items", label: "DET 근거 항목(선택)", type: "ids", width: 120 },
+    { key: "ret_groups", label: "RET 하위 그룹(선택)", type: "ids", width: 100 },
+    { key: "ftr_ret", label: "FTR/RET 직접값(전문가)", type: "number", width: 60 },
+    { key: "det", label: "DET 직접값(전문가)", type: "number", width: 55 },
     { key: "assumed_complexity", label: "가정 복잡도", type: "select", options: [["__null", "없음"], ["L", "L 낮음"], ["A", "A 보통"], ["H", "H 높음"]], width: 80 },
     { key: "assumption_note", label: "가정 사유", width: 90 },
     { key: "requirement_ids", label: "요구사항ID", type: "ids", width: 90 },
@@ -40,10 +43,15 @@ export default function FpStep() {
         return (
           <div className="small">
             간이 {s.simple_weight ?? "-"} / 정통 {s.detailed_weight ?? "-"} {s.complexity ? `(${s.complexity})` : ""}
-            <div className="muted">{CX_SOURCE[s.complexity_source]}{s.counted ? " · 집계" : " · 미집계"}</div>
+            <div className="muted">
+              {CX_SOURCE[s.complexity_source] || s.complexity_source}
+              {s.complexity_source === "derived" && ` · DET ${s.det_used ?? "-"} · FTR/RET ${s.ftr_ret_used ?? "-"}`}
+              {s.counted ? (s.count_basis === "scope" ? " · 집계(업무 확인·추정)" : " · 집계(확정)") : " · 미집계"}
+            </div>
             {s.issues.filter((i) => !i.startsWith("미확정 항목")).map((i, k) => (
               <div key={k} className="issue">{i}</div>
             ))}
+            {s.detailed_note && <div className="muted">정통법: {s.detailed_note}</div>}
           </div>
         );
       },
@@ -60,14 +68,20 @@ export default function FpStep() {
           </ActionButton>
         }
       >
+        <ol className="small steps-hint">
+          <li>기능·데이터 설계로 FP 후보를 만듭니다(다시 실행해도 같은 항목은 새로 늘지 않고 갱신 제안으로 나옵니다).</li>
+          <li>아래 <b>업무 확인</b>에서 각 후보가 우리 사업에 있는 처리·자료인지 '있음/없음/모름'으로 답합니다. 숫자는 입력하지 않습니다.</li>
+          <li>업무 확인한 항목으로 간이법 <b>추정 산정</b>이 됩니다. 정통법 DET·FTR은 기능의 입력·출력 항목과 데이터 항목 목록에서 코드가 셉니다.</li>
+        </ol>
         <p className="muted small">
-          유형 설명: EI <Help term="EI" /> EO <Help term="EO" /> EQ <Help term="EQ" /> ILF <Help term="ILF" /> EIF <Help term="EIF" /> · DET <Help term="DET" /> FTR <Help term="FTR" /> RET <Help term="RET" />. 점수는 직접 입력하지 않고 유형·DET·FTR/RET·상태를 고치면 코드가 다시 계산합니다. '확정' 항목만 기준 산정에 들어갑니다.
+          전문가 검토(표의 상태 '확정')를 거친 항목은 '확정 산정'으로 표시됩니다. 유형 설명: EI <Help term="EI" /> EO <Help term="EO" /> EQ <Help term="EQ" /> ILF <Help term="ILF" /> EIF <Help term="EIF" /> · DET <Help term="DET" /> FTR <Help term="FTR" /> RET <Help term="RET" />
         </p>
         <JobStatus job={jr.job} running={jr.running} onRetry={jr.retry} note={jr.note} />
       </Section>
       <Proposals kinds={["fp_candidates"]} />
+      {sum && <ScopeCheck sum={sum} />}
       {sum && <FpSummaryBox sum={sum} />}
-      <Section title="FP 항목 표">
+      <Section title="FP 항목 표(상세·전문가 편집)">
         <EditableTable collection="fp_items" rows={data.project.fp_items as unknown as Row[]} cols={cols} defaults={{ application: data.project.overview.boundary_name }} addLabel="FP 항목 추가" />
       </Section>
       {sum && <Coverage sum={sum} />}
@@ -77,30 +91,151 @@ export default function FpStep() {
   );
 }
 
-function FpSummaryBox({ sum }: { sum: FPSummary }) {
+export function BasisBadge({ b }: { b: EstimateBasis | undefined }) {
+  if (!b) return null;
   return (
-    <Section title="FP 집계(확정 항목)" help={<><Help term="SIMPLE" /> <Help term="DETAILED" /></>}>
+    <Badge kind={BASIS_BADGE[b.basis]} title={BASIS_HELP[b.basis]}>
+      {b.label}
+    </Badge>
+  );
+}
+
+const isPending = (it: FPItem) => (it.status === "draft" || it.status === "review") && !it.scope_confirmed;
+
+/** 업무 확인: 비전문가가 후보마다 '우리 사업에 있는가'만 답한다. 유형이 비면 업무 말로 고른다. 숫자 입력 없음. */
+function ScopeCheck({ sum }: { sum: FPSummary }) {
+  const { data, setData, run, busy } = useProject();
+  const pid = data.project.id;
+  const items = data.project.fp_items as FPItem[];
+  const byId: Record<string, FPSummaryItem> = Object.fromEntries(sum.items.map((i) => [i.id, i]));
+  const pending = items.filter(isPending);
+  const done = items.filter((it) => it.scope_confirmed && (it.status === "draft" || it.status === "review"));
+  const reqTitle = Object.fromEntries(data.project.requirements.map((r) => [r.id, r.title]));
+  const patch = async (it: FPItem, d: Record<string, unknown>, msg: string) => {
+    const r = await run(() => api.patch<ProjectResponse>(`${P(pid)}/items/fp_items/${it.id}`, { data: d, version: data.version }), msg);
+    if (r) setData(r);
+  };
+  if (!pending.length && !done.length) return null;
+  return (
+    <Section title={`업무 확인 — 남은 후보 ${pending.length}건`}>
+      <p className="muted small">
+        각 후보가 이번 사업에서 실제로 하는 처리·관리하는 자료인지 답해 주세요. '있음'으로 답한 항목은 간이법 <b>추정 산정</b>에 들어갑니다. 유형·점수는 코드와 전문가 검토가 정합니다.
+      </p>
+      {pending.length > 0 && (
+        <div className="table-wrap">
+          <table className="grid compact">
+            <thead>
+              <tr>
+                <th style={{ width: 70 }}>ID</th>
+                <th>후보(무엇을 하나)</th>
+                <th style={{ width: 210 }}>어떤 처리인가요?</th>
+                <th>왜 후보가 되었나</th>
+                <th style={{ width: 200 }}>우리 사업에 있나요?</th>
+              </tr>
+            </thead>
+            <tbody>
+              {pending.map((it) => {
+                const s = byId[it.id];
+                return (
+                  <tr key={it.id} className={s?.issues.some((i) => i.startsWith("중복 의심")) ? "needs-review" : ""}>
+                    <td><code>{it.id}</code></td>
+                    <td>
+                      <b>{it.name}</b>
+                      {it.requirement_ids.length > 0 && <div className="muted small">관련 요구: {it.requirement_ids.map((r) => `${r} ${reqTitle[r] || ""}`).join(", ")}</div>}
+                      {s?.issues.filter((i) => i.startsWith("중복 의심") || i.includes("섞인")).map((i, k) => <div key={k} className="issue small">{i}</div>)}
+                      {it.uncertainty && <div className="muted small">메모: {it.uncertainty}</div>}
+                    </td>
+                    <td>
+                      <EditArea>
+                        <select
+                          aria-label={`${it.id} 처리 종류`}
+                          value={it.fp_type || ""}
+                          disabled={busy}
+                          onChange={(e) => patch(it, { fp_type: e.target.value || null }, "처리 종류를 저장했습니다.")}
+                        >
+                          <option value="">모르겠음(미분류)</option>
+                          {PLAIN_TYPE.map(([k, l]) => (
+                            <option key={k} value={k}>{l}</option>
+                          ))}
+                        </select>
+                      </EditArea>
+                      {it.fp_type && <div className="muted small">FP 유형 {it.fp_type}</div>}
+                    </td>
+                    <td className="small">{it.rationale || it.description || <span className="muted">근거 없음 — 기능·데이터 설계를 보완하세요</span>}</td>
+                    <td>
+                      <div className="row-actions">
+                        <ActionButton className="primary" disabled={busy || !it.fp_type} title={!it.fp_type ? "처리 종류를 먼저 골라 주세요(모르면 그대로 두고 담당자 확인)" : undefined} onClick={() => patch(it, { scope_confirmed: true }, `${it.id}: 업무 확인(있음)`)}>
+                          있음
+                        </ActionButton>
+                        <ActionButton disabled={busy} onClick={() => patch(it, { status: "excluded", uncertainty: "업무 확인: 이번 사업에 없음" }, `${it.id}: 제외(없음)`)}>
+                          없음
+                        </ActionButton>
+                        <ActionButton disabled={busy} onClick={() => patch(it, { status: "review", uncertainty: "업무 확인 보류 — 담당 부서 확인 필요" }, `${it.id}: 확인 목록에 남김(모름)`)}>
+                          모름
+                        </ActionButton>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+      {done.length > 0 && (
+        <details>
+          <summary>업무 확인한 항목 {done.length}건(FP 기술 검토 전 · 추정 산정에 포함)</summary>
+          <ul className="small">
+            {done.map((it) => (
+              <li key={it.id}>
+                <code>{it.id}</code> {it.name} — {PLAIN_TYPE_LABEL[it.fp_type || ""] || "미분류"}{" "}
+                <ActionButton className="link" disabled={busy} onClick={() => patch(it, { scope_confirmed: false }, `${it.id}: 업무 확인 취소`)}>
+                  확인 취소
+                </ActionButton>
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
+    </Section>
+  );
+}
+
+function FpSummaryBox({ sum }: { sum: FPSummary }) {
+  const bs = sum.basis;
+  return (
+    <Section title="FP 집계(코드 계산)" help={<><Help term="SIMPLE" /> <Help term="DETAILED" /></>}>
       <div className="kpis">
         <div className="kpi">
           <span>간이법</span>
-          <b>{num(sum.simple.total_fp, 1)} FP</b>
+          <b>{bs?.simple.basis === "empty" ? "미산정" : `${num(sum.simple.total_fp, 1)} FP`}</b>
+          <BasisBadge b={bs?.simple} />
         </div>
         <div className="kpi">
           <span>정통법</span>
-          <b>{sum.detailed.total_fp} FP</b>
-          {!sum.detailed.complete && <Badge kind="st-review">미확정(입력 누락 {sum.detailed.missing_ids.length})</Badge>}
+          <b>{bs?.detailed.basis === "empty" ? "미산정" : `${sum.detailed.total_fp} FP`}</b>
+          <BasisBadge b={bs?.detailed} />
         </div>
         <div className="kpi">
-          <span>미확정 포함 추정(간이, 참고)</span>
-          <b>{num(sum.tentative_simple_fp_including_unconfirmed, 1)} FP</b>
-        </div>
-        <div className="kpi">
-          <span>미확정·미분류·중복의심·경계</span>
+          <span>집계 항목(확정 · 업무 확인)</span>
           <b>
-            {sum.counts.unconfirmed} · {sum.counts.unclassified} · {sum.counts.duplicate_suspects} · {sum.counts.boundary_issues}
+            {sum.counts.confirmed_counted ?? 0} · {sum.counts.scope_counted ?? 0}
+          </b>
+        </div>
+        <div className="kpi">
+          <span>업무 확인 전·미분류·중복의심·경계</span>
+          <b>
+            {sum.counts.awaiting_scope ?? sum.counts.unconfirmed} · {sum.counts.unclassified} · {sum.counts.duplicate_suspects} · {sum.counts.boundary_issues}
           </b>
         </div>
       </div>
+      {bs && (
+        <div className="small">
+          {bs.simple.reasons.length > 0 && <p><b>간이법 상태 이유:</b> {bs.simple.reasons.join(" · ")}</p>}
+          {bs.detailed.reasons.length > 0 && <p><b>정통법 상태 이유:</b> {bs.detailed.reasons.join(" · ")}</p>}
+        </div>
+      )}
+      <p className="muted small">참고: 후보 전체를 넣었다고 가정한 간이법 합계 {num(sum.tentative_simple_fp_including_unconfirmed, 1)} FP(업무 확인 전 포함, 산정값 아님)</p>
       <table className="grid compact">
         <thead>
           <tr>
@@ -168,7 +303,7 @@ function CostPanel() {
   const { data, setData, run, busy, system } = useProject();
   const pid = data.project.id;
   const [cs, setCs] = useState<CostSettings>(data.project.cost_settings);
-  const [preview, setPreview] = useState<{ complete: boolean; warnings: string[]; money: { total?: number; supply?: number; basis?: string[] }; fp: { total_fp: string } } | null>(null);
+  const [preview, setPreview] = useState<{ complete: boolean; warnings: string[]; basis?: EstimateBasis; money: { total?: number; supply?: number; basis?: string[] }; fp: { total_fp: string } } | null>(null);
   useEffect(() => setCs(data.project.cost_settings), [data.project.cost_settings]);
   useEffect(() => {
     api.get<typeof preview>(`${P(pid)}/estimate-preview`).then(setPreview).catch(() => setPreview(null));
@@ -180,6 +315,7 @@ function CostPanel() {
   const exp = cs.direct_expenses;
   return (
     <Section title="개발비 산정 설정" right={<ActionButton className="primary" disabled={busy} onClick={save}>설정 저장</ActionButton>}>
+      <p className="muted small">'설정 저장'은 보정계수·이윤·끝수 같은 <b>조건만</b> 저장합니다. 견적(금액 버전)은 아래 <b>기준 산정 실행·저장</b>을 눌러야 만들어집니다.</p>
       <EditArea>
       <div className="form-grid">
         <Field label="산정 기준 버전">
@@ -257,7 +393,15 @@ function CostPanel() {
       </EditArea>
       {preview && (
         <div className="preview-box">
-          <b>저장된 설정 기준 미리보기:</b> FP {preview.fp.total_fp} → 공급가액 {won(preview.money.supply)} / 총액(부가세 포함) {won(preview.money.total)} {!preview.complete && <Badge kind="st-review">미완료</Badge>}
+          <b>저장된 설정 기준 미리보기(견적 아님):</b>{" "}
+          {preview.basis?.basis === "empty" ? (
+            <>집계된 FP 0건 — 금액 미산정</>
+          ) : (
+            <>
+              FP {preview.fp.total_fp} → 공급가액 {won(preview.money.supply)} / 총액(부가세 포함) {won(preview.money.total)}
+            </>
+          )}{" "}
+          <BasisBadge b={preview.basis} />
           <Warn items={preview.warnings} />
         </div>
       )}
@@ -305,7 +449,8 @@ function Estimates() {
               <b>
                 {e.id} {e.label}
               </b>
-              <Badge kind="st-confirmed">기준 산정</Badge>
+              <Badge kind="plain">기준 산정</Badge>
+              {e.result.basis ? <BasisBadge b={e.result.basis} /> : null}
               <span className="muted small">
                 {e.created_at} · {e.method === "simple" ? "간이법" : "정통법"} · {e.standard_snapshot.id}
               </span>
@@ -378,7 +523,7 @@ function Estimates() {
           </div>
         );
       })}
-      {!ests.length && <p className="muted">아직 기준 산정이 없습니다. FP 항목을 확정한 뒤 실행하세요.</p>}
+      {!ests.length && <p className="muted">아직 기준 산정이 없습니다. 업무 확인을 마친 뒤 '기준 산정 실행·저장'을 누르세요(설정 저장만으로는 견적이 만들어지지 않습니다).</p>}
     </Section>
   );
 }

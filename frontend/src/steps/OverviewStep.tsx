@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api, P } from "../api";
+import { Proposals } from "../components/Proposals";
 import { ActionButton, EditArea, Field, Help, Section, useProject, useReadOnly } from "../components/ui";
 import { SYSTEM_KINDS } from "../labels";
 import type { Overview, ProjectResponse } from "../types";
@@ -34,6 +35,16 @@ export default function OverviewStep() {
     return () => { window.removeEventListener("beforeunload", unload); document.removeEventListener("click", navigate, true); };
   }, [dirty, ro]);
   const partial = PHASES.some(([k]) => !ov.phases[k]);
+  // 변경안 적용 등으로 서버 개요가 바뀌면 화면 값을 맞춘다(제안 버튼은 미저장 변경이 있으면 막는다).
+  useEffect(() => {
+    setOv(p.overview);
+    setName(p.name);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data.version]);
+  const suggest = async () => {
+    const r = await run(() => api.post<ProjectResponse>(`${P(p.id)}/overview/suggest`), "빈 항목 제안을 만들었습니다. 아래에서 비교 후 적용하세요.");
+    if (r) setData(r);
+  };
 
   const save = async () => {
     const r = await run(() => api.patch<ProjectResponse>(P(p.id), { name, overview: ov, ai_profile: aiProfile, version: data.version }), "저장했습니다.");
@@ -50,6 +61,17 @@ export default function OverviewStep() {
   return (
     <>
       {!ro && dirty && <p className="warn" role="status">저장하지 않은 변경이 있습니다. 개요의 저장 버튼으로 반영하세요.</p>}
+      <Section
+        title="빈 항목 채우기 제안"
+        right={
+          <ActionButton disabled={busy || dirty} title={dirty ? "먼저 개요를 저장하세요" : undefined} onClick={suggest}>
+            빈 항목 채우기 제안
+          </ActionButton>
+        }
+      >
+        <p className="muted small">처음 구상·요구사항·기능 설계에서 목적·이용자·FP 측정 대상 이름 같은 <b>비어 있는 칸</b>의 초안을 만듭니다(AI 호출 없음). 이미 쓴 칸은 바꾸지 않으며, 비교 후 고른 항목만 적용됩니다.</p>
+        <Proposals kinds={["overview"]} />
+      </Section>
       <Section title="사업 개요" right={<ActionButton className="primary" disabled={busy} onClick={save}>저장</ActionButton>}>
         <EditArea>
         <div className="form-grid">
