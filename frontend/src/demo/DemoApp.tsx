@@ -109,6 +109,14 @@ function DemoHome({ man, unknown }: { man: DemoManifest; unknown: string | null 
           <SampleCard key={s.pid} s={s} />
         ))}
       </div>
+      <details className="card examples" id="examples"><summary><b>예제로 체험하기</b> <span className="muted small">가상 예제 파일 내려받기 · 이 시연판에서는 올리기·실행이 되지 않아요</span></summary>
+        <ul className="example-list">
+          <li><b>01 구상</b> <a href={`${DATA_BASE}examples/A-idea/idea_example.md`} download>입력 예시 받기</a> · 완성 결과 보기: <a href="#/p/sampleA/overview">샘플 A</a> <span className="muted small">(입력부터 체험은 실제 앱의 '예제 값으로 시작')</span></li>
+          <li><b>02 참고문서</b> <a href={`${DATA_BASE}examples/B-reference/reference_task_order.txt`} download>가상 타 기관 과업지시서 받기</a> · 추출·결정 결과 보기: <a href="#/p/sampleB/sources">샘플 B</a> <span className="muted small">(같은 원문으로 만든 샘플)</span></li>
+          <li><b>03 검토</b> 가상 업체 문서: <a href={`${DATA_BASE}examples/C-review/vendor_task.txt`} download>과업지시서</a> · <a href={`${DATA_BASE}examples/C-review/vendor_design.txt`} download>설계서</a> · <a href={`${DATA_BASE}examples/C-review/vendor_fp.xlsx`} download>FP 산정표</a> · <a href={`${DATA_BASE}examples/C-review/vendor_cost.txt`} download>금액 산출서</a> · <a href={`${DATA_BASE}examples/C-review/expected_findings.md`} download>기대 확인 목록</a>
+            <br /><span className="muted small">검토 실행은 실제 앱에서 합니다. 비슷한 검토 결과(샘플 A용 가상 업체 문서)는 <a href="#/p/sampleA/review">샘플 A의 6 검토·추천</a>에서 볼 수 있어요.</span></li>
+        </ul>
+      </details>
       <details className="card"><summary>시연판과 실제 앱의 차이</summary>
         <div className="table-wrap">
           <table className="grid compact">

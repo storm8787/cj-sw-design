@@ -79,7 +79,7 @@ jobs:
       - name: 브라우저 E2E
         env:
           E2E_PASSWORD: ci-e2e-password-1
-        run: node e2e/flow.cjs && node e2e/reference.cjs
+        run: node e2e/flow.cjs && node e2e/reference.cjs && node e2e/examples.cjs
       - if: failure()
         uses: actions/upload-artifact@v4
         with:

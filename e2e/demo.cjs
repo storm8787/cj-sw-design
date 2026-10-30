@@ -64,6 +64,13 @@ function check(cond, msg) {
     // 1. 로그인 없이 진입
     await page.goto(URL0);
     await page.getByText("샘플을 골라 둘러보세요").waitFor();
+    // 예제로 체험하기: 같은 원본 예제 파일 내려받기(정적 파일), 올리기·실행 안내는 실제 앱으로
+    await page.locator("details.examples summary").click();
+    for (const f of ["A-idea/idea_example.md", "B-reference/reference_task_order.txt", "C-review/vendor_fp.xlsx", "C-review/expected_findings.md"]) {
+      const r = await page.request.get(URL0 + "demo-data/examples/" + f);
+      check(r.ok(), `예제 파일 제공: ${f}`);
+    }
+    check(await page.getByText("이 시연판에서는 올리기·실행이 되지 않아요").isVisible(), "시연판 예제: 올리기·실행 불가 안내");
     check(await page.locator(".demo-banner summary").isVisible() && (await page.locator(".demo-banner summary").innerText()).includes("샘플 시연판"), "상단 '샘플 시연판' 표시");
     await page.locator(".demo-banner summary").click();
     check(await page.getByText(banner).isVisible(), "펼치면 제한 안내(AI 호출·문서 분석·서버 저장 없음) 전체 문구");
