@@ -3,8 +3,22 @@
 지방자치단체 공무원이 **신규 정보화사업(홈페이지·포털, 일반 SW·정보시스템 신규개발)**을 구상하거나 참고문서를 제시하면,
 질문으로 요구사항과 설계를 구체화하고 **FP(기능점수)·개발비·검토의견·엑셀 산출물**을 만들어 주는 웹앱입니다.
 
-- 접속 주소: **미배포**. 테스트 배포 준비 완료 — Render 1대 + 영속 디스크 추천안과 절차는 [`docs/DEPLOY.md`](docs/DEPLOY.md), 배포 후 사용자 테스트 순서는 [`docs/USER_TEST.md`](docs/USER_TEST.md). 배포 서비스 가입·결제·비밀값 입력은 사용자가 직접 합니다.
+- **샘플 시연판(GitHub Pages)**: 예상 주소 `https://storm8787.github.io/cj-sw-design/` — 저장소 Pages 설정 후 `main` 병합 시 배포(배포 전에는 미배포, 실제 상태는 [`docs/HANDOFF.md`](docs/HANDOFF.md)). 안내: [`docs/DEMO.md`](docs/DEMO.md)
+- 실제 앱 접속 주소: **미배포**. 테스트 배포 준비 완료 — Render 1대 + 영속 디스크 추천안과 절차는 [`docs/DEPLOY.md`](docs/DEPLOY.md), 배포 후 사용자 테스트 순서는 [`docs/USER_TEST.md`](docs/USER_TEST.md). 배포 서비스 가입·결제·비밀값 입력은 사용자가 직접 합니다.
 - 상태·다음 작업: [`docs/HANDOFF.md`](docs/HANDOFF.md) · 요구사항: [`docs/PROJECT_SPEC.md`](docs/PROJECT_SPEC.md) · FP 기준: [`docs/FP_RULES.md`](docs/FP_RULES.md)
+
+## 실제 앱과 샘플 시연판
+
+| | 실제 앱(서버 — Render 등 배포 예정) | 샘플 시연판(GitHub Pages) |
+|---|---|---|
+| 목적 | 실제 사업을 설계하고 산출물을 만든다 | 가상 샘플로 화면 흐름과 결과물을 둘러본다 |
+| 로그인 | 관리자 비밀번호 | 없음 |
+| 데이터 | 프로젝트 생성·편집·저장·이어하기 | 미리 만든 가상 샘플 2종(구상 기반 완료 사례, 참고문서 기반 검토 필요 사례), 저장 안 함 |
+| AI·문서 | AI 연결(또는 서버 '샘플 모드' 규칙)로 질문·초안 생성, 문서 업로드·추출 | AI 호출·업로드·분석 없음(미리 만든 결과 표시) |
+| FP·개발비·엑셀 | 입력할 때마다 계산·생성 | 서버 계산 엔진·엑셀 생성기로 미리 만든 값·샘플 파일 |
+| 실행 | Python 서버 필요(`docker run …`) | 정적 파일만(`npm run build:demo`) |
+
+시연판은 실제 앱과 같은 화면 코드를 읽기 전용으로 쓰며, 빌드할 때만 선택됩니다(일반 앱에서 주소로 켤 수 없음). 자세히: [`docs/DEMO.md`](docs/DEMO.md)
 
 ## 주요 기능
 - **시작 4종**: 새 설계(한 줄 구상) / 참고문서로 설계 / 기존 문서 검토 / 프로젝트 이어하기, 샘플 프로젝트 2종
@@ -65,6 +79,20 @@ E2E_PASSWORD=<관리자 비밀번호> node e2e/flow.cjs
 E2E_PASSWORD=<관리자 비밀번호> node e2e/reference.cjs
 ```
 (E2E는 서버를 운영 모드로 띄운 뒤 실행. `flow.cjs`는 구상 기반, `reference.cjs`는 참고문서 기반 흐름. 다른 주소는 `BASE_URL`, 자체서명 HTTPS는 `E2E_IGNORE_HTTPS_ERRORS=1`. Playwright가 없으면 `cd e2e && npm ci && npx playwright install chromium`)
+
+## 샘플 시연판 빌드(서버 불필요)
+```bash
+cd frontend && npm run demo:data
+```
+
+```bash
+cd frontend && npm run build:demo
+```
+
+```bash
+node e2e/demo.cjs
+```
+(`demo:data`는 Python으로 샘플을 생성·검증 — 빌드 단계 전용. 결과 `frontend/dist-demo/`는 `/cj-sw-design/` 경로용 정적 파일. 배포는 `.github/workflows/pages.yml`)
 
 ## Docker 단일 서버 배포
 ```bash

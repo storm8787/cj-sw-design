@@ -18,6 +18,10 @@
   GitHub Pages만으로는 동작하지 않는다.
 - 저장: SQLite + 프로젝트별 파일 디렉터리(`DATA_DIR`). 배포 시 `DATA_DIR`을 영속 볼륨에 둔다.
 - 단일 서버 배포: Docker 이미지 하나가 빌드된 화면과 API를 같은 출처로 제공한다.
+- **샘플 시연판(GitHub Pages)**은 별도 정적 빌드다(`npm run build:demo`, `docs/DEMO.md`). 빌드 때만 `src/api.ts`·`src/App.tsx`를
+  `src/demo/`로 바꿔 끼우며 같은 화면 코드를 읽기 전용으로 쓴다. 일반 앱에 시연용 런타임 스위치(URL 파라미터 등)를 만들지 않는다.
+  시연 데이터는 `backend/tools/demo_data.py`가 실제 API·계산 엔진·엑셀 생성기로 만들고 검증한다(값을 손으로 적지 않음, 생성물은 커밋하지 않음).
+  화면에 저장·실행 버튼을 추가할 때는 `ActionButton`/`EditArea`를 써서 시연판에서 비활성화되게 한다.
 
 ## 3. 데이터·추적 원칙
 - 요구사항·기능설계·화면·데이터·연계·FP·견적·검토·추천·엑셀은 **하나의 프로젝트 데이터**에서 생성한다.
@@ -70,11 +74,13 @@ cd frontend && npm run dev                  # http://localhost:5173 (API는 8000
 # E2E (서버 실행 후)
 E2E_PASSWORD=<관리자 비밀번호> node e2e/flow.cjs   # 서버는 운영 모드(인증)로 실행
 E2E_PASSWORD=<관리자 비밀번호> node e2e/reference.cjs  # 참고문서 기반 흐름(2026-10-30 추가)
+# 샘플 시연판(서버 불필요)
+cd frontend && npm run demo:data && npm run build:demo && cd .. && node e2e/demo.cjs
 # Docker 단일 서버
 docker build -t sw-design-helper . && docker run -p 8000:8000 -v swdata:/data --env-file .env sw-design-helper
 ```
-- 위 명령은 2026-10-29 모두 실제 실행해 확인했다(개발 서버는 화면 200·API 프록시 응답까지). `reference.cjs`는 2026-10-30 확인. 결과는 `docs/VALIDATION.md`.
-- 테스트 배포 안내는 `docs/DEPLOY.md`, 배포 후 사용자 테스트 순서는 `docs/USER_TEST.md`.
+- 위 명령은 2026-10-29 모두 실제 실행해 확인했다(개발 서버는 화면 200·API 프록시 응답까지). `reference.cjs`·시연판 명령은 2026-10-30 확인. 결과는 `docs/VALIDATION.md`.
+- 테스트 배포 안내는 `docs/DEPLOY.md`, 배포 후 사용자 테스트 순서는 `docs/USER_TEST.md`, 시연판은 `docs/DEMO.md`.
 - 새 명령은 실행해 VALIDATION에 기록하기 전까지 '검증 전'으로 본다.
 
 ## 10. Git에 올리지 않는 것

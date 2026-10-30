@@ -103,6 +103,18 @@
 - 이미지 변경: root로 시작해 `/data` 소유자를 맞춘 뒤 비루트로 전환(`docker-entrypoint.sh`, 배포 디스크가 root 소유일 때 기동 실패하던 문제), 포트는 `PORT` 환경변수(기본 8000).
 - 실제 배포·과금은 사용자 결정(agent.md §12). Render 공식 문서는 이 세션 네트워크 정책으로 열지 못해, `render.yaml` 항목은 배포 시 Render 화면에서 확인한다(수동 설정 절차를 DEPLOY §3에 함께 둠).
 
+### D-020 (2026-10-30) GitHub Pages 정적 시연판: 빌드 때 모듈 교체 + 생성기로 만든 정적 샘플
+- 지시: "서버·API 키 없이 GitHub Pages에서 화면과 결과물을 둘러볼 수 있는 별도의 정적 시연 모드. 기존 화면 재사용, 빌드 시 명시적 선택, URL 파라미터로 인증 우회 금지, 금액·FP는 Python 엔진으로 생성·검증."
+- 선택:
+  - **빌드 모드 교체**: `vite build --mode demo`에서만 Vite 플러그인이 `src/api.ts`→`src/demo/api.ts`, `src/App.tsx`→`src/demo/DemoApp.tsx`로 바꿔 끼운다. 일반 빌드에는 시연 코드·데이터가 없고 런타임 플래그가 없어 인증 우회 경로가 생기지 않는다. 시연 API 어댑터는 실제 api.ts 타입(`typeof Real.api` 등)에 맞춰 화면 코드를 그대로 쓴다.
+  - **읽기 전용은 공용 컴포넌트에서**: `Ctx.readOnly`(시연판만 설정) + `ActionButton`(비활성화·이유 툴팁)·`EditArea`(fieldset disabled)·`EditableTable` 추가·수정·삭제 숨김. 단계 화면을 복제하지 않는다.
+  - **샘플 데이터는 생성기**: `backend/tools/demo_data.py`가 임시 DATA_DIR로 서버 앱을 띄워 실제 API(샘플 규칙 모드, AI 호출 없음)로 두 프로젝트를 만들고, 화면이 쓰는 GET 응답과 서버 엑셀 생성기 결과를 정적 파일로 저장. `--check`는 Project 모델 검증·FP 합계·견적 총액(당시 기준 스냅샷)·엑셀 표시·파일 해시를 현재 엔진과 비교. pytest(`test_demo_data.py`)로 CI에서도 확인.
+  - **생성 결과는 커밋하지 않음**: agent.md §10(생성된 엑셀 커밋 금지)에 따라 `frontend/demo-public/demo-data/`는 .gitignore, Pages 워크플로가 빌드 단계에서 매번 생성·검증(Pages 런타임에서는 Python 실행 없음). 샘플이 엔진과 어긋날 수 없다.
+  - **다운로드 파일 이름은 ASCII**(`SAMPLE-A_…xlsx`): 2026-10-30 확인 결과 헤드리스 Chromium이 한글 `download` 이름을 버리고 확장자 없는 `download`로 저장 — 파일 안(첫 시트 제목·속성)에 '샘플 시연판(가상 데이터)' 표시.
+  - **배포**: 별도 `pages.yml`(main 푸시·수동 실행 배포, PR은 빌드·브라우저 확인만), `configure-pages@v6`·`upload-pages-artifact@v5`·`deploy-pages@v5`, deploy job만 `pages: write`·`id-token: write`, `github-pages` 환경, 동시 배포 그룹 `pages`.
+- 함께 고친 것: 업체 문서에도 '분석이 끝나지 않은 문서' 안내가 뜨던 상태 표시(참고문서만으로 한정, 회귀 테스트), 참고 항목 '수정' 결정의 수정 후 문장 표시, 좁은 화면에서 넓은 표를 표 안 가로 스크롤로.
+- 대안: 별도 시연 전용 화면 작성(두 벌 유지 부담), 런타임 플래그(`?demo=1`, 인증 우회 위험), 생성 결과 커밋(엑셀 커밋 금지 규칙·불일치 위험) — 채택하지 않음.
+
 ## 과거 결정
 - D-007(AI 어댑터: Anthropic 단일 + 샘플, 키가 있어도 기본 샘플)은 D-018로 대체됨.
 - D-001의 '공개 범위 변경 없음'(Private 유지)은 D-017로 대체됨.
