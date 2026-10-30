@@ -3,7 +3,7 @@
 지방자치단체 공무원이 **신규 정보화사업(홈페이지·포털, 일반 SW·정보시스템 신규개발)**을 구상하거나 참고문서를 제시하면,
 질문으로 요구사항과 설계를 구체화하고 **FP(기능점수)·개발비·검토의견·엑셀 산출물**을 만들어 주는 웹앱입니다.
 
-- **샘플 시연판(GitHub Pages)**: 예상 주소 `https://storm8787.github.io/cj-sw-design/` — 저장소 Pages 설정 후 `main` 병합 시 배포(배포 전에는 미배포, 실제 상태는 [`docs/HANDOFF.md`](docs/HANDOFF.md)). 안내: [`docs/DEMO.md`](docs/DEMO.md)
+- **샘플 시연판(GitHub Pages)**: https://storm8787.github.io/cj-sw-design/ (2026-10-30 배포, `main` 변경 시 자동 재배포). 안내: [`docs/DEMO.md`](docs/DEMO.md)
 - 실제 앱 접속 주소: **미배포**. 테스트 배포 준비 완료 — Render 1대 + 영속 디스크 추천안과 절차는 [`docs/DEPLOY.md`](docs/DEPLOY.md), 배포 후 사용자 테스트 순서는 [`docs/USER_TEST.md`](docs/USER_TEST.md). 배포 서비스 가입·결제·비밀값 입력은 사용자가 직접 합니다.
 - 상태·다음 작업: [`docs/HANDOFF.md`](docs/HANDOFF.md) · 요구사항: [`docs/PROJECT_SPEC.md`](docs/PROJECT_SPEC.md) · FP 기준: [`docs/FP_RULES.md`](docs/FP_RULES.md)
 
@@ -130,3 +130,7 @@ docker run -d -p 8000:8000 -v swdata:/data --env-file .env --name sw-design-help
 - 장비 구매비는 개발비에 포함하지 않습니다. 유료 SW·클라우드 비용은 '별도 비용'으로만 표시합니다.
 - 단일 관리자용 MVP입니다(다중 사용자·권한 분리는 후속).
 - 연간 유지관리, 장비 유지관리, ITS/BIS, RFID, 단독 DB·공간정보 구축, 컨설팅은 후속 확장 범위입니다.
+
+## UI·UX 개발
+공통 디자인: [DESIGN_SYSTEM](docs/DESIGN_SYSTEM.md). Codex는 [AGENTS.md](AGENTS.md)에서 안내하는 문서를 직접 읽는다.
+반응형·시트·필터·저장 UX 검사는 두 빌드와 샘플 생성 후 인증 서버에서 `E2E_PASSWORD=… BASE_URL=http://127.0.0.1:8000 node e2e/ux.cjs`로 실행한다. 유료 AI 키 없이 샘플 모드로 검증한다.

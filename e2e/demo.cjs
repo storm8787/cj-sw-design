@@ -64,7 +64,7 @@ function check(cond, msg) {
     // 1. 로그인 없이 진입
     await page.goto(URL0);
     await page.getByText("샘플을 골라 둘러보세요").waitFor();
-    check(await page.getByText(banner).isVisible(), "상단 시연판 안내 문구 표시");
+    check(await page.locator(".demo-banner summary").isVisible(), "상단 시연판 안내 문구 표시");
     check((await page.locator('input[type="password"]').count()) === 0, "로그인 없이 진입(비밀번호 입력 없음)");
     check(await page.getByText("정적 시연판 · 서버·AI 없음").isVisible(), "정적 시연판 표시(실제 앱 '샘플 모드'와 구분)");
     check((await page.locator('input[type="file"]').count()) === 0, "파일 업로드 입력 없음");
@@ -75,7 +75,7 @@ function check(cond, msg) {
     // 2. 샘플 A — 7단계
     await page.locator(".demo-card", { hasText: "A. 구상 기반" }).getByRole("link", { name: "둘러보기" }).click();
     await page.getByRole("heading", { name: "[샘플] 직원 교육 신청·관리 시스템" }).waitFor();
-    check(await page.getByText(banner).isVisible(), "단계 화면에서도 안내 문구 유지");
+    check(await page.locator(".demo-banner summary").isVisible(), "단계 화면에서도 안내 문구 유지");
     check(await page.getByRole("button", { name: "저장" }).first().isDisabled(), "① 개요: 저장 버튼 비활성화");
     check((await page.getByText("프로젝트 삭제").count()) === 0, "① 개요: 삭제 기능 숨김");
     await shot("A1-overview");
@@ -142,6 +142,7 @@ function check(cond, msg) {
 
     // 4. 샘플 B — 참고문서
     await page.getByRole("link", { name: "처음으로" }).click();
+    await page.locator(".demo-card", { hasText: "B. 참고문서 기반" }).getByText("단계 바로가기", { exact: true }).click();
     await page.locator(".demo-card", { hasText: "B. 참고문서 기반" }).getByRole("link", { name: /② 자료·질문/ }).click();
     await page.getByText("참고문서 항목 — 우리 기관 기준으로 유지·수정·제외").waitFor();
     const ref = page.locator(".card", { hasText: "참고문서 항목 — 우리 기관 기준으로" });
@@ -185,7 +186,7 @@ function check(cond, msg) {
       await p.getByText("FP 집계(확정 항목)").waitFor();
       const over2 = await p.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
       check(over2 <= 1, `${name}(${w}px) FP 화면 가로 넘침 없음(표는 표 안에서 스크롤)`);
-      check(await p.getByText(banner).isVisible(), `${name} 안내 문구 표시`);
+      check(await p.locator(".demo-banner summary").isVisible(), `${name} 안내 문구 표시`);
       await p.getByRole("link", { name: "6 검토·추천" }).click();
       await p.getByText("기존 문서 검토(대조)").waitFor();
       await shot(`${name}-review`, p);

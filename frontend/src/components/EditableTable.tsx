@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Dialog } from "./Frame";
 import { api, P } from "../api";
 import type { ProjectResponse, Row } from "../types";
 import { OriginBadge, StatusBadge, useProject, useReadOnly } from "./ui";
@@ -66,6 +67,8 @@ export function EditableTable({ collection, rows, cols, defaults = {}, addLabel 
   const [editing, setEditing] = useState<string | null>(null);
   const [draft, setDraft] = useState<Record<string, string>>({});
   const [adding, setAdding] = useState(false);
+  const [detail, setDetail] = useState<Row | null>(null);
+  const [status, setStatus] = useState("");
   const [filter, setFilter] = useState("");
 
   const begin = (row: Row) => {
@@ -102,7 +105,7 @@ export function EditableTable({ collection, rows, cols, defaults = {}, addLabel 
     const r = await run(() => api.patch<ProjectResponse>(`${P(pid)}/items/${collection}/${row.id}`, { data: { needs_review: false, review_reason: "" } }));
     if (r) setData(r);
   };
-  const shown = filter ? rows.filter((r) => JSON.stringify(r).includes(filter)) : rows;
+  const shown = rows.filter(r => (!filter || JSON.stringify(r).toLowerCase().includes(filter.toLowerCase())) && (!status || (status === "needs_review" ? r.needs_review : r.status === status)));
 
   const editRow = (row: Row | null) => (
     <tr className="editing" key={row?.id || "new"}>
@@ -147,7 +150,8 @@ export function EditableTable({ collection, rows, cols, defaults = {}, addLabel 
           + {addLabel}
         </button>
         )}
-        <span className="muted">{rows.length}건</span>
+        <span className="muted" role="status">{shown.length} / {rows.length}건</span>
+        {statusCol && <div className="filter-chips" aria-label="상태 필터">{[["", "전체"], ["draft", "초안"], ["confirmed", "확정"], ["needs_review", "재검토 필요"]].map(([key, label]) => <button key={key} className={status === key ? "active" : ""} aria-pressed={status === key} onClick={() => setStatus(key)}>{label}</button>)}</div>}
       </div>
       <table className="grid">
         <thead>
@@ -170,7 +174,7 @@ export function EditableTable({ collection, rows, cols, defaults = {}, addLabel 
             ) : (
               <tr key={row.id} className={row.needs_review ? "needs-review" : row.status === "excluded" ? "excluded" : ""}>
                 <td>
-                  <code>{row.id}</code>
+                  <button className="link detail-link" onClick={() => setDetail(row)} aria-label={`${row.id} 상세 보기`}><code>{row.id}</code></button>
                   {row.origin ? (
                     <div>
                       <OriginBadge o={String(row.origin)} />
@@ -210,15 +214,16 @@ export function EditableTable({ collection, rows, cols, defaults = {}, addLabel 
               </tr>
             ),
           )}
-          {!rows.length && !adding && (
+          {!shown.length && !adding && (
             <tr>
               <td colSpan={cols.length + (ro ? 2 : 3)} className="muted center">
-                아직 항목이 없습니다.
+                {rows.length ? "검색 조건에 맞는 항목이 없습니다. 검색어나 상태 필터를 바꿔 보세요." : ro ? "이 샘플에는 항목이 없습니다. 다른 단계에서 결과를 확인해 보세요." : "아직 항목이 없습니다. 위에서 초안을 만들거나 ‘+ 행 추가’ 버튼으로 직접 입력하세요."}
               </td>
             </tr>
           )}
         </tbody>
       </table>
+      {detail && <Dialog title={`${detail.id} · 상세 근거`} onClose={() => setDetail(null)}><dl className="detail-list">{cols.map(c => <div key={c.key}><dt>{c.label}</dt><dd>{c.render ? c.render(detail) : show(detail[c.key], c)}</dd></div>)}<div><dt>상태</dt><dd><StatusBadge s={String(detail.status || "draft")} /></dd></div>{detail.review_reason ? <div><dt>재검토 이유</dt><dd>{String(detail.review_reason)}</dd></div> : null}</dl></Dialog>}
     </div>
   );
 }

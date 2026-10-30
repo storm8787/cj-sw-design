@@ -100,3 +100,9 @@ docker build -t sw-design-helper . && docker run -p 8000:8000 -v swdata:/data --
   사용자 확인 후 수행한다. 그 외 구현·테스트·문서 갱신은 스스로 진행한다.
 - 사용자의 최신 명시적 지시를 이 문서보다 우선하며, 반영 시 관련 문서도 갱신한다.
 - 기술 선택은 합리적 기본값을 정하고 `docs/DECISIONS.md`에 기록한다.
+
+## 13. UI·UX 유지 기준
+- 디자인의 단일 기준은 `docs/DESIGN_SYSTEM.md`. UI 수정 전 직접 읽는다.
+- Codex는 `AGENTS.md`, Claude Code는 `CLAUDE.md`를 진입점으로 사용하며 공통 기준은 이 파일에서 유지한다. Codex의 @파일 자동 읽기를 가정하지 않는다.
+- 시연판/일반 앱은 Frame·Workspace·단계 화면·디자인 토큰을 공유한다. 빌드 때 demo 모듈을 선택하는 경계와 읽기 전용 보호를 유지한다.
+- UI 변경 시 두 빌드와 기존 E2E 및 `e2e/ux.cjs`를 확인한다. 계산·기준값·ID 관계 변경은 UI 개선에 포함하지 않는다.

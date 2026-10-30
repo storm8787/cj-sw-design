@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { api, P } from "../api";
 import { ActionButton, EditArea, Field, Help, Section, useProject, useReadOnly } from "../components/ui";
 import { SYSTEM_KINDS } from "../labels";
@@ -21,6 +21,18 @@ export default function OverviewStep() {
   const [ov, setOv] = useState<Overview>(p.overview);
   const [delName, setDelName] = useState("");
   const set = <K extends keyof Overview>(k: K, v: Overview[K]) => setOv({ ...ov, [k]: v });
+  const dirty = name !== p.name || aiProfile !== p.ai_profile || JSON.stringify(ov) !== JSON.stringify(p.overview);
+  useEffect(() => {
+    if (!dirty || ro) return;
+    const unload = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ""; };
+    const navigate = (e: MouseEvent) => {
+      const a = (e.target as HTMLElement).closest("a[href]");
+      if (a && a.getAttribute("href") !== location.hash && !confirm("저장하지 않은 변경이 있습니다. 저장하지 않고 이동할까요?")) { e.preventDefault(); e.stopPropagation(); }
+    };
+    window.addEventListener("beforeunload", unload);
+    document.addEventListener("click", navigate, true);
+    return () => { window.removeEventListener("beforeunload", unload); document.removeEventListener("click", navigate, true); };
+  }, [dirty, ro]);
   const partial = PHASES.some(([k]) => !ov.phases[k]);
 
   const save = async () => {
@@ -37,43 +49,17 @@ export default function OverviewStep() {
 
   return (
     <>
+      {!ro && dirty && <p className="warn" role="status">저장하지 않은 변경이 있습니다. 개요의 저장 버튼으로 반영하세요.</p>}
       <Section title="사업 개요" right={<ActionButton className="primary" disabled={busy} onClick={save}>저장</ActionButton>}>
         <EditArea>
         <div className="form-grid">
           <Field label="사업 이름">
             <input value={name} onChange={(e) => setName(e.target.value)} />
           </Field>
-          <Field label="AI 연결" hint={data.ai.note || "질문·초안·FP 후보·문서 분석에 쓸 AI. 외부 AI는 요청마다 전송 동의를 받습니다."}>
-            <select value={aiProfile} onChange={(e) => setAiProfile(e.target.value)}>
-              <option value="">서버 기본값 — {defaultConn?.display}</option>
-              {system.ai_profiles
-                .filter((x) => x.usable)
-                .map((x) => (
-                  <option key={x.name} value={x.name}>
-                    {x.display}
-                    {x.external ? " (외부 전송)" : x.is_real_ai ? " (내부)" : ""}
-                  </option>
-                ))}
-              {system.ai_profiles
-                .filter((x) => !x.usable)
-                .map((x) => (
-                  <option key={x.name} value={x.name} disabled>
-                    {x.label} — 설정 부족: {x.missing.join(", ")}
-                  </option>
-                ))}
-            </select>
-          </Field>
           <Field label="사업 유형">
             <select value={ov.business_type} onChange={(e) => set("business_type", e.target.value as Overview["business_type"])}>
               <option value="system">일반 SW·정보시스템 신규개발</option>
               <option value="portal">홈페이지·포털 신규개발</option>
-            </select>
-          </Field>
-          <Field label="시작 방식">
-            <select value={ov.start_mode} onChange={(e) => set("start_mode", e.target.value as Overview["start_mode"])}>
-              <option value="idea">구상 기반</option>
-              <option value="document">참고문서 기반</option>
-              <option value="review">기존 문서 검토</option>
             </select>
           </Field>
           <Field label="처음 구상(원문)">
@@ -82,7 +68,11 @@ export default function OverviewStep() {
           <Field label="목적">
             <textarea rows={2} value={ov.purpose} onChange={(e) => set("purpose", e.target.value)} />
           </Field>
-          <Field label="추진 배경">
+          <Field label={<>FP 측정 대상 애플리케이션(경계) <Help term="BOUNDARY" /></>} hint="이 이름과 다른 애플리케이션의 처리는 FP에 넣지 않습니다.">
+            <input value={ov.boundary_name} onChange={(e) => set("boundary_name", e.target.value)} placeholder="예: 교육관리시스템" />
+          </Field>
+        </div>
+        <details className="advanced"><summary>상세 설정 · 이용자·기간·기관 환경·AI 연결</summary><div className="form-grid">          <Field label="추진 배경">
             <textarea rows={2} value={ov.background} onChange={(e) => set("background", e.target.value)} />
           </Field>
           <Field label="이용자">
@@ -106,10 +96,34 @@ export default function OverviewStep() {
               ))}
             </div>
           </Field>
-          <Field label={<>FP 측정 대상 애플리케이션(경계) <Help term="BOUNDARY" /></>} hint="이 이름과 다른 애플리케이션의 처리는 FP에 넣지 않습니다.">
-            <input value={ov.boundary_name} onChange={(e) => set("boundary_name", e.target.value)} placeholder="예: 교육관리시스템" />
+          <Field label="시작 방식">
+            <select value={ov.start_mode} onChange={(e) => set("start_mode", e.target.value as Overview["start_mode"])}>
+              <option value="idea">구상 기반</option>
+              <option value="document">참고문서 기반</option>
+              <option value="review">기존 문서 검토</option>
+            </select>
           </Field>
-        </div>
+          <Field label="AI 연결" hint={data.ai.note || "질문·초안·FP 후보·문서 분석에 쓸 AI. 외부 AI는 요청마다 전송 동의를 받습니다."}>
+            <select value={aiProfile} onChange={(e) => setAiProfile(e.target.value)}>
+              <option value="">서버 기본값 — {defaultConn?.display}</option>
+              {system.ai_profiles
+                .filter((x) => x.usable)
+                .map((x) => (
+                  <option key={x.name} value={x.name}>
+                    {x.display}
+                    {x.external ? " (외부 전송)" : x.is_real_ai ? " (내부)" : ""}
+                  </option>
+                ))}
+              {system.ai_profiles
+                .filter((x) => !x.usable)
+                .map((x) => (
+                  <option key={x.name} value={x.name} disabled>
+                    {x.label} — 설정 부족: {x.missing.join(", ")}
+                  </option>
+                ))}
+            </select>
+          </Field>
+</div></details>
         </EditArea>
       </Section>
 
@@ -156,7 +170,7 @@ export default function OverviewStep() {
       </Section>
 
       {!ro && (
-      <Section title="프로젝트 삭제">
+      <details className="advanced"><summary>프로젝트 관리 · 삭제</summary><Section title="프로젝트 삭제">
         <p className="muted">삭제하면 이 프로젝트의 데이터·첨부·견적이 모두 지워지고 되돌릴 수 없습니다. 다른 프로젝트에는 영향이 없습니다. 먼저 '엑셀' 단계에서 JSON 백업을 받아 두세요.</p>
         <div className="row-actions">
           <input placeholder="확인을 위해 프로젝트 이름 입력" value={delName} onChange={(e) => setDelName(e.target.value)} aria-label="삭제 확인용 이름" />
@@ -164,7 +178,7 @@ export default function OverviewStep() {
             삭제
           </button>
         </div>
-      </Section>
+      </Section></details>
       )}
     </>
   );
