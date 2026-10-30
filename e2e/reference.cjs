@@ -87,7 +87,8 @@ function check(cond, msg) {
 
     // 5. 요구사항에 반영(원문 연결)
     await page.getByRole("link", { name: "3 요구사항" }).click();
-    await page.getByText("교육 시작 전까지 취소").first().waitFor();
+    await page.getByText("요구사항 목록").waitFor(); // 자료 화면에도 '수정 후' 문장이 있어 단계 전환을 먼저 기다림
+    await page.locator(".card", { hasText: "요구사항 목록" }).getByText("교육 시작 전까지 취소").first().waitFor();
     check(await page.getByText("교육과정 등록·수정·삭제").first().isVisible(), "유지 항목이 요구사항(초안)으로 반영");
     check(!(await page.getByText("Oracle 19c").count()), "제외 항목은 요구사항에 없음");
     await shot("03-requirements");
