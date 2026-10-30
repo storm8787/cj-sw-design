@@ -3,7 +3,7 @@
 서버·API 키 없이 **가상 샘플로 화면과 결과물을 둘러보는 정적 시연판**이다. 실제 기능을 쓰는 웹앱(서버)은 Render 배포(`docs/DEPLOY.md`, 다음 작업)로 따로 제공한다.
 
 - 예상 주소: `https://storm8787.github.io/cj-sw-design/` (프로젝트 Pages 경로 `/cj-sw-design/`)
-- 실제 배포 여부·주소는 `docs/HANDOFF.md` §1에 기록한다(배포 전에는 '미배포').
+- 2026-10-30 첫 배포 완료(PR #4 병합 후 Actions run 40983396985). 최신 상태는 `docs/HANDOFF.md` §1.
 
 ## 1. 무엇을 보여 주나
 

@@ -142,7 +142,9 @@
 - 내려받은 엑셀 내용: 13개 시트, 첫 시트 제목 줄·파일 속성에 '샘플 시연판(가상 데이터)'. LibreOffice 재계산 후 검산 A 11/11·B 9/9 '일치', 개발비_기준 총액 = 엔진 값(54,394,916 / 30,895,695).
 - 개발 서버 `npm run dev:demo`: `/cj-sw-design/` 200, manifest 200, 모듈 교체 확인.
 - 일반 앱 회귀: 백엔드 pytest **120 passed**(시연 생성기 2건·상태 표시 회귀 1건 추가), 운영 모드 서버 + `e2e/flow.cjs`·`e2e/reference.cjs` **통과**(reference.cjs는 '수정 후' 문장 추가로 생긴 단계 전환 대기 경쟁을 고침).
-- 미실시: 실제 GitHub Pages 배포(저장소 Settings → Pages 설정과 main 병합이 필요 — 사용자 결정). Pages 워크플로는 PR 실행 결과로 확인한다.
+- PR #4 CI: ci.yml 4개 job·pages.yml build 성공, deploy는 PR이라 건너뜀(설계대로).
+- 실제 배포: PR #4 병합 후 main에서 'Pages 시연판' run 40983396985 성공 — build(샘플 생성·검증, 시연 빌드, 배포 파일 확인, 러너에서 `e2e/demo.cjs` 통과, configure-pages·upload-pages-artifact) → deploy(deploy-pages) 성공. 주소 `https://storm8787.github.io/cj-sw-design/`.
+- 미확인: 공개 주소에서의 브라우저 확인 — 이 작업 세션은 네트워크 정책으로 github.io에 접속하지 못함(같은 빌드 결과물을 러너의 정적 서버로 확인한 것까지).
 
 ## 6. 미검증 / 한계
 - 실제 AI 호출은 OpenAI(gpt-6.1-sol) 1개 사업으로만 확인(§5-3). Anthropic·호환 LLM은 mock 전송 계층으로만 시험.
