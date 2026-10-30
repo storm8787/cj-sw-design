@@ -43,7 +43,7 @@
 | 실제 AI 호출 | OpenAI 검증 / 그 외 **미검증** | OpenAI `gpt-6.1-sol`로 질문·요구사항·설계·FP 후보·문서 추출 모두 성공(VALIDATION §5-3, 발견된 문제 4건 수정). Anthropic·사내/상용 LLM은 실제 호출 미검증 |
 
 ## 3. 테스트 결과 (상세: `docs/VALIDATION.md`)
-- 백엔드 pytest **125 passed**(2026-10-30, D-022 시나리오 A·B·C 포함), 프런트 타입검사·일반 빌드·시연 빌드 성공, 로컬 운영 모드에서 `flow`·`reference`·`ux`·`demo` E2E 통과(VALIDATION §8).
+- 백엔드 pytest **127 passed**(2026-10-30, D-022 시나리오 A·B·C·리뷰 회귀 포함), 프런트 타입검사·일반 빌드·시연 빌드 성공, 로컬 운영 모드에서 `flow`·`reference`·`ux`·`demo` E2E 통과(VALIDATION §8).
 - 샘플 시연판(VALIDATION §5-5): 정적 서버만으로 `e2e/demo.cjs` 통과 — `/api`·외부·404·콘솔 오류 0건, 모바일·태블릿, 샘플 엑셀 재계산 검산 일치.
 - 배포 설정 로컬 점검(2026-10-30, VALIDATION §5-4): HTTPS 프록시 뒤 운영 모드 컨테이너에서 구상 기반(`e2e/flow.cjs`)·참고문서 기반(`e2e/reference.cjs`) 브라우저 E2E 통과, 컨테이너 교체 후 데이터 유지, 실제 OpenAI 질문·문서 추출 성공, 엑셀 다운로드, 로그에 비밀값·원문 없음.
 - GitHub Actions(`.github/workflows/ci.yml`): PR #3 최신 커밋(56998ac)에서 backend·frontend·e2e·docker 모두 성공. 이번 브랜치부터 e2e job이 참고문서 E2E도 실행.

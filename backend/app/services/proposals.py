@@ -119,11 +119,18 @@ def apply_proposal(p: Project, m: Mutation, proposal_id: str, keys: list[str] | 
         elif it.op == "add":
             dup = _same_existing(p, it.collection, data)
             if dup is not None:
-                # 이미 같은 항목이 있으면 새로 만들지 않고 기존 항목에 연결(변경안 재적용·중복 생성 방지)
+                # 이미 같은 항목이 있으면 새로 만들지 않고 기존 항목에 합친다(변경안 재적용·중복 생성 방지).
+                # 새 변경안의 ID 연결(요구사항·기능·데이터 등)은 잃지 않도록 더하고, 기존 값은 지우거나 덮어쓰지 않는다.
+                links = {k: [x for x in v if x not in getattr(dup, k)] for k, v in data.items()
+                         if k.endswith("_ids") and isinstance(v, list) and isinstance(getattr(dup, k, None), list)}
+                patch = {k: getattr(dup, k) + v for k, v in links.items() if v}
+                if patch:
+                    update_item(p, m, it.collection, dup.id, patch)
                 it.status = "merged"
                 it.applied_id = dup.id
                 key_map[it.key] = dup.id
-                notes.append(f"{it.key}: 이미 있는 {dup.id}와 같아 새로 추가하지 않고 연결함")
+                extra = f" — 연결 추가: {', '.join(x for v in links.values() for x in v)}" if patch else ""
+                notes.append(f"{it.key}: 이미 있는 {dup.id}와 같아 새로 추가하지 않고 합침{extra}")
                 continue
             obj = add_item(p, m, it.collection, data)
             it.applied_id = obj.id

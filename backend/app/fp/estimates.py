@@ -12,15 +12,26 @@ from . import cost, engine
 
 def _fp_fields(p: Project) -> list[dict[str, Any]]:
     return [
-        {k: getattr(it, k) for k in ("id", "fp_type", "status", "det", "ftr_ret", "assumed_complexity", "application", "duplicate_of", "name")}
+        {k: getattr(it, k) for k in ("id", "fp_type", "status", "det", "ftr_ret", "assumed_complexity", "application", "duplicate_of", "name",
+                                     "scope_confirmed", "det_items", "ret_groups", "requirement_ids", "function_ids", "data_ids")}
         for it in p.fp_items
     ]
+
+
+def _design_fields(p: Project) -> dict[str, Any]:
+    """FP 집계·근거 도출·산정 상태가 읽는 설계 정보(engine.DesignIndex·coverage). 바뀌면 견적을 '갱신 필요'로 본다."""
+    return {
+        "fn": [(f.id, f.status, f.inputs, f.outputs, f.requirement_ids) for f in p.functions],
+        "dat": [(d.id, d.name, d.status, d.attributes, d.subgroups) for d in p.data_entities],
+        "req": [(r.id, r.kind, r.status) for r in p.requirements],
+    }
 
 
 def input_hash(p: Project, std: dict[str, Any], method: str) -> str:
     return stable_hash(
         {
             "fp": _fp_fields(p),
+            "design": _design_fields(p),
             "settings": p.cost_settings.model_dump(),
             "phases": p.overview.phases.model_dump(),
             "ratios": p.overview.phase_ratios.model_dump(),

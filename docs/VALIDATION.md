@@ -176,7 +176,7 @@
 
 | 검사 | 명령 | 결과 |
 |---|---|---|
-| 백엔드 단위·통합 | `cd backend && uv run pytest -q` | **125 passed** |
+| 백엔드 단위·통합 | `cd backend && uv run pytest -q` | **127 passed**(리뷰 지적 회귀 테스트 2건 포함) |
 | 타입검사·일반 빌드·시연 빌드 | `cd frontend && npm run typecheck && npm run build && npm run build:demo` | 성공 |
 | 시연 데이터 재생성·검증 | `cd frontend && npm run demo:data` | '샘플 검증 통과'(샘플 A 간이법 70.6 FP 확정 산정, B 부분 산정) |
 | 시연판 E2E | `node e2e/demo.cjs` | 통과(업무 확인 표·'있음' 비활성화·부분 산정·확인 목록 포함) |

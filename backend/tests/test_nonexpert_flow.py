@@ -10,7 +10,7 @@ from decimal import ROUND_DOWN, Decimal
 import openpyxl
 
 from app.ai.provider import MockProvider
-from app.models import Project
+from app.models import Project, ProposalItem
 from tests.conftest import client_for
 
 REF_DOC = """가상시 관광 경비 환급 홈페이지 구축 과업지시서(가상 문서)
@@ -246,3 +246,38 @@ def test_old_project_data_loads_with_defaults():
            "data_entities": [{"id": "DAT-001", "name": "신청 정보"}]}
     p = Project.model_validate(raw)
     assert p.fp_items[0].scope_confirmed is False and p.fp_items[0].det_items == [] and p.data_entities[0].subgroups == []
+
+
+def test_merged_proposal_keeps_incoming_requirement_links(client):
+    """같은 이름 기능 추가안이 merged 되어도 새 요구사항 연결은 기존 기능에 더해진다(ID 연결 보존)."""
+    c = client
+    pid = pj(c.post("/api/projects", json={"name": "x"}))["project"]["id"]
+    r1 = pj(c.post(f"/api/projects/{pid}/items/requirements", json={"data": {"title": "환급 신청"}}))["item"]["id"]
+    r2 = pj(c.post(f"/api/projects/{pid}/items/requirements", json={"data": {"title": "환급 신청 보완"}}))["item"]["id"]
+    fid = pj(c.post(f"/api/projects/{pid}/items/functions", json={"data": {"name": "환급 신청", "requirement_ids": [r1]}}))["item"]["id"]
+    from app.models import Proposal
+
+    st = client.app.state.ctx.store
+    def add(p, m):
+        p.proposals.append(Proposal(id="PR-900", kind="design", created_at="", mode="sample", items=[
+            ProposalItem(key="f0", op="add", collection="functions", data={"name": "환급 신청", "requirement_ids": [r2], "origin": "sample", "status": "draft"})]))
+    st.mutate(pid, "test", add)
+    d = pj(c.post(f"/api/projects/{pid}/proposals/PR-900/apply", json={}))
+    fns = d["project"]["functions"]
+    assert len(fns) == 1 and fns[0]["id"] == fid and fns[0]["requirement_ids"] == [r1, r2]
+    assert next(x for x in d["project"]["proposals"] if x["id"] == "PR-900")["items"][0]["status"] == "merged"
+
+
+def test_estimate_marked_stale_when_scope_or_evidence_changes(client):
+    c = client
+    pid = pj(c.post("/api/projects", json={"name": "x", "sample": "education"}))["project"]["id"]
+    eid = pj(c.post(f"/api/projects/{pid}/estimates", json={}))["project"]["estimates"][-1]["id"]
+    d = pj(c.get(f"/api/projects/{pid}"))
+    assert d["status"]["estimate_states"][eid] == "current"
+    draft = next(it for it in d["project"]["fp_items"] if it["status"] != "confirmed")
+    d = pj(c.patch(f"/api/projects/{pid}/items/fp_items/{draft['id']}", json={"data": {"scope_confirmed": True}}))
+    assert d["status"]["estimate_states"][eid] == "stale"
+    eid2 = pj(c.post(f"/api/projects/{pid}/estimates", json={}))["project"]["estimates"][-1]["id"]
+    dat = d["project"]["data_entities"][0]["id"]
+    d = pj(c.patch(f"/api/projects/{pid}/items/data_entities/{dat}", json={"data": {"subgroups": ["변경 이력"]}}))
+    assert d["status"]["estimate_states"][eid2] == "stale"
