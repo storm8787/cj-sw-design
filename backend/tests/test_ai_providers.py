@@ -263,3 +263,27 @@ def test_job_keeps_submitted_profile_on_retry(app_factory):
     db.execute("UPDATE jobs SET status='failed', params=? WHERE id=?", (json.dumps({"profile": "없어진연결"}), j["id"]))
     r = c.post(f"/api/jobs/{j['id']}/retry").json()
     assert r["status"] == "failed" and "바꾸지 않았습니다" in r["error"] and mock.calls == []
+
+
+def test_connection_error_names_certificate_and_proxy_causes():
+    import ssl
+
+    import openai
+
+    from app.ai.provider import _map_sdk_error
+
+    req = __import__("httpx").Request("POST", "https://api.openai.com/v1/chat/completions")
+
+    def wrapped(cause):
+        try:
+            try:
+                raise cause
+            except Exception as c:
+                raise openai.APIConnectionError(request=req) from c
+        except openai.APIConnectionError as e:
+            return e
+
+    assert "인증서" in str(_map_sdk_error(openai, wrapped(ssl.SSLCertVerificationError("self-signed")), "OpenAI", "m"))
+    ProxyError = type("ProxyError", (Exception,), {})
+    assert "프록시" in str(_map_sdk_error(openai, wrapped(ProxyError("refused")), "OpenAI", "m"))
+    assert "주소·네트워크" in str(_map_sdk_error(openai, wrapped(OSError("down")), "OpenAI", "m"))

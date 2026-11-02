@@ -6,7 +6,7 @@ AI는 질문·초안·분류 후보를 제안하고, FP 가중치·금액 계산
 
 **▶ 실제 앱: https://sw-design-helper.onrender.com** (관리자 로그인 필요) · **▶ 설치 없이 둘러보기(읽기 전용): https://storm8787.github.io/cj-sw-design/**
 
-## 시작 방법 세 가지
+## 시작 방법 세 가지 — 웹에서 사용하기
 | | 실제 앱 | 읽기 전용 시연판 | 내 PC에서 실행 |
 |---|---|---|---|
 | 주소 | https://sw-design-helper.onrender.com | https://storm8787.github.io/cj-sw-design/ | http://localhost:8000 |
@@ -17,6 +17,18 @@ AI는 질문·초안·분류 후보를 제안하고, FP 가중치·금액 계산
 
 - 실제 앱은 운영자가 Render에 배포한 서버입니다(`render.yaml` 기준 서버 1대 + 영속 디스크). 현재 운영 설정(AI 모델·키 유무)은 저장소에서 알 수 없어, 화면 상단 AI 표시로 확인하는 방법을 [평가자 안내](docs/EVALUATOR_GUIDE.md)에 적었습니다.
 - 시연판은 실제 앱과 같은 화면 코드를 읽기 전용으로 씁니다. AI를 부르지 않으며, 보이는 결과는 서버 '샘플 규칙'으로 미리 만든 것입니다.
+
+## Windows 시험판 — 내 PC에서 설치 없이 실행(시험판, 미서명)
+직원 PC(Windows 11 x64)에서 Python·Node·Docker 없이 실행하는 **시험판**입니다. 웹판과 같은 화면을 기본 브라우저로 엽니다.
+
+1. GitHub Actions의 'Windows 시험판' artifact에서 `CJ-SW-Design-windows-x64-<커밋>.zip`을 받습니다(공개 Release 아님, 14일 보관).
+2. **모두 압축 풀기** → `CJ-SW-Design\CJ-SW-Design.exe` 더블클릭.
+3. 처음 실행이면 로그인 비밀번호(10자 이상)를 정합니다. 서버가 준비되면 브라우저가 `http://127.0.0.1:<포트>/`로 열립니다.
+4. 끝낼 때는 런처 창의 **[종료]**를 누릅니다. 브라우저 탭만 닫으면 계속 실행됩니다.
+
+- 데이터는 `%LOCALAPPDATA%\CJ-SW-Design`에 남습니다. 프로그램 폴더를 바꿔도 이어지며, 암호화 저장은 아닙니다.
+- 처음에는 샘플 모드입니다. [설정]에 본인 OpenAI 키를 넣으면 AI를 쓸 수 있고, 이때 업무 내용이 OpenAI로 전송되며 사용료가 청구됩니다.
+- 서명하지 않은 시험판이라 보안 경고가 뜰 수 있습니다. 받기·실행·설정·종료·백업·새 버전 교체와 한계: [Windows 시험판 안내](docs/WINDOWS.md)
 
 ## 무엇을 넣으면 무엇이 나오나
 | 넣는 것 | 나오는 것 |
@@ -81,6 +93,6 @@ AI는 질문·초안·분류 후보를 제안하고, FP 가중치·금액 계산
 | 대상 | 문서 |
 |---|---|
 | 평가자 | [평가자 체험 순서](docs/EVALUATOR_GUIDE.md) · [구동안내서 초안(양식 2-1)](docs/RUN_GUIDE.md) · [제출 체크리스트·시연영상 구성](docs/SUBMISSION.md) · [모의데이터](examples/README.md) |
-| 사용자 | [배포 후 사용자 테스트](docs/USER_TEST.md) · [시연판](docs/DEMO.md) · [엑셀 서식](docs/EXCEL_FORMAT.md) |
+| 사용자 | [Windows 시험판](docs/WINDOWS.md) · [배포 후 사용자 테스트](docs/USER_TEST.md) · [시연판](docs/DEMO.md) · [엑셀 서식](docs/EXCEL_FORMAT.md) |
 | 운영·개발 | [배포(Render)](docs/DEPLOY.md) · [개발·테스트·환경변수](docs/DEVELOPMENT.md) · [구조](docs/ARCHITECTURE.md) · [FP 기준](docs/FP_RULES.md) · [AI 비용·모델](docs/AI_COST.md) · [외부 구성요소·라이선스](docs/THIRD_PARTY.md) |
 | 진행 기록 | [인수인계](docs/HANDOFF.md) · [검증 기록](docs/VALIDATION.md) · [결정 기록](docs/DECISIONS.md) · [요구사항](docs/PROJECT_SPEC.md) · 공통 작업 기준 [agent.md](agent.md) |

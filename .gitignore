@@ -250,3 +250,6 @@ playwright-report/
 .env.*
 !.env.example
 *.tsbuildinfo
+
+# Windows 시험판 PyInstaller 설정은 버전 관리한다(빌드 결과 build/·dist/는 제외)
+!backend/desktop/cj-sw-design.spec
