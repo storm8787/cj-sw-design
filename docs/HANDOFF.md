@@ -74,7 +74,8 @@
 | 엑셀 산출물 서식 | 완료 | 산출내역서형 서식·인쇄(2026-10-30). Microsoft Excel 화면·인쇄 미리보기는 미확인(LibreOffice로 확인) |
 
 ## 3. 테스트 결과 (상세: `docs/VALIDATION.md`)
-- 백엔드 pytest **138 passed**(2026-10-30, 예제 3건 포함), 프런트 타입검사·일반 빌드·시연 빌드 성공, 로컬 운영 모드에서 `flow`·`reference`·`ux`·`examples`·`demo` E2E 통과, README의 Docker 경로·소스 실행(bash)을 깨끗한 위치에서 재현(VALIDATION §10). PowerShell 명령은 실행하지 않았다(문법만).
+- Windows 시험판(2026-11-02, VALIDATION §11): windows-2025 runner에서 ZIP을 새로 풀어 실행파일로 109개 항목 통과(첫 실행·파서·견적·엑셀·기존 E2E 3종·중복 실행·재실행·폴더 이동·포트 충돌·강제 종료·시작 실패·가짜 키·창 모드). 개발 도구 없는 실제 직원 PC는 미검증.
+- 백엔드 pytest **144 passed**(2026-11-02). 이전: **138 passed**(2026-10-30, 예제 3건 포함), 프런트 타입검사·일반 빌드·시연 빌드 성공, 로컬 운영 모드에서 `flow`·`reference`·`ux`·`examples`·`demo` E2E 통과, README의 Docker 경로·소스 실행(bash)을 깨끗한 위치에서 재현(VALIDATION §10). PowerShell 명령은 실행하지 않았다(문법만).
 - 샘플 시연판(VALIDATION §5-5): 정적 서버만으로 `e2e/demo.cjs` 통과 — `/api`·외부·404·콘솔 오류 0건, 모바일·태블릿, 샘플 엑셀 재계산 검산 일치.
 - 배포 설정 로컬 점검(2026-10-30, VALIDATION §5-4): HTTPS 프록시 뒤 운영 모드 컨테이너에서 구상 기반(`e2e/flow.cjs`)·참고문서 기반(`e2e/reference.cjs`) 브라우저 E2E 통과, 컨테이너 교체 후 데이터 유지, 실제 OpenAI 질문·문서 추출 성공, 엑셀 다운로드, 로그에 비밀값·원문 없음.
 - GitHub Actions(`.github/workflows/ci.yml`): PR #3 최신 커밋(56998ac)에서 backend·frontend·e2e·docker 모두 성공. 이번 브랜치부터 e2e job이 참고문서 E2E도 실행.
