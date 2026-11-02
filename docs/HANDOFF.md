@@ -1,15 +1,24 @@
-# HANDOFF — 인수인계 (최종 갱신 2026-10-30, D-025)
+# HANDOFF — 인수인계 (최종 갱신 2026-11-02, D-026)
 
 ## 1. 현재 위치
-- 저장소: `storm8787/cj-sw-design`(Public) · 작업 브랜치: `claude/kind-franklin-pjcpsr`(PR #7 병합 후 최신 main에서 다시 시작)
-- PR #1~#7 모두 `main`에 병합. 이번 작업(D-025 README·평가자 안내·예제 체험)은 새 PR — **main 병합 전**.
+- 저장소: `storm8787/cj-sw-design`(Public) · 작업 브랜치: `claude/kind-franklin-pjcpsr`(PR #8 병합 후 최신 main 69ebbe7에서 다시 시작)
+- PR #1~#8 모두 `main`에 병합. 이번 작업(D-026 Windows 로컬 실행 시험판)은 PR #9 — **main 병합 전**.
 - 배포 상태:
   - 실제 앱: 사용자가 Render(`https://sw-design-helper.onrender.com`)에 배포해 운영 중(사용자 전달). main 병합 시 Render가 자동 재배포한다. 이번 작업 환경에서는 이 주소에 접속할 수 없어 직접 확인하지 못했다.
     - 권장 모델 구성(`OPENAI_MODEL=gpt-6-luna`, `OPENAI_MODEL_FP_CANDIDATES=gpt-6.1-sol`)이 기존 Render 서비스에 적용되었는지는 **미확인**. 화면 오른쪽 위 AI 표시로 확인한다(`docs/AI_COST.md` §7).
   - 샘플 시연판: `https://storm8787.github.io/cj-sw-design/`(main 병합 시 자동 재배포). 이번 작업 환경에서 접속 확인은 못 했다.
 - 대상 사용자: **설계·FP 비전문가 공무원**. 제출 대상: 2026 공공 AI 대전환 챌린지 세션 1(`docs/SUBMISSION.md`, 마감 2026-11-11).
 
-### 이번 작업(2026-10-30, D-025) — 처음 보는 평가자·사용자가 이해하고 실행할 수 있게
+### 이번 작업(2026-11-02, D-026) — Windows 로컬 실행 시험판(미서명)
+| 작업 | 결과 | 근거 |
+|---|---|---|
+| 런처 | `backend/desktop/`: 127.0.0.1 바인딩, 선호 포트 사용 중이면 빈 포트, 한 사용자 한 인스턴스(잠금+실행 정보 대조), 준비 확인 후 브라우저, 60초 시한, 정상 종료 시 작업 '중단' 기록·DB 닫기, 최소 tkinter 창(상태·브라우저·설정·데이터 폴더·종료) | `docs/WINDOWS.md` |
+| 설정·비밀값 | 첫 실행 비밀번호(해시), 설치별 세션 키·OpenAI 키는 DPAPI 보호 파일(`%LOCALAPPDATA%\CJ-SW-Design\config`), 앱 설정 환경변수 정리 후 런처 값(운영 모드·인증·CSRF 유지, 로컬 http 쿠키) | `desktop/config.py`, `server.py` |
+| 패키징 | PyInstaller 6.22.3 one-folder(창 모드), Python 3.13.17 런타임 포함, 일반 화면 빌드·예제·기준값 포함, 금지 파일 검사·ZIP·SHA-256·build_info | `desktop/cj-sw-design.spec`, `build.py` |
+| Windows 검증 | `.github/workflows/windows.yml`이 ZIP을 한글·공백 경로에 풀어 최소 PATH로 실행파일을 띄우고 `desktop/smoke.py` + 기존 E2E 3종 실행, artifact 14일 | VALIDATION §11 |
+| AI 오류 안내 | 인증서 확인 실패·프록시 실패를 구분(검증은 끄지 않음), Windows 인증서 저장소 사용(truststore) | `app/ai/provider.py` |
+
+### 이전 작업(2026-10-30, D-025, PR #8 병합) — 처음 보는 평가자·사용자가 이해하고 실행할 수 있게
 | 작업 | 결과 | 근거 |
 |---|---|---|
 | README 재구성 | 소개·실제 앱/시연판/내 PC 비교·입력→출력·예제·Docker 실행·AI 비용·제약·문서 표. 개발 세부는 `docs/DEVELOPMENT.md`로 이동(삭제 없음) | README.md |
@@ -83,6 +92,7 @@
 8. 샘플 시연판은 읽기 전용 정적 화면(새 계산·생성 없음). 샘플 데이터는 커밋하지 않고 빌드 때 `backend/tools/demo_data.py`로 생성하므로, 화면·모델·계산을 바꾼 뒤 `npm run demo:data`가 실패하면 생성기(`build_a`·`build_b`)를 함께 고쳐야 Pages 배포가 진행됨.
 
 ## 5. 다음 작업(우선순위)
+000. (사용자) PR #9 artifact의 Windows 시험판 ZIP을 실제 직원 PC(개발 도구 없음)에서 `docs/WINDOWS.md` §7 체크리스트로 확인 → SmartScreen·백신·프록시 반응 기록 → 결과에 따라 코드 서명·배포 채널(Release 등) 결정(사용자 결정, 이번 범위 아님).
 00. (사용자, 제출) `docs/SUBMISSION.md` 체크리스트: 참가신청서·구동안내서 PDF(`docs/RUN_GUIDE.md`를 공식 양식에 옮김)·시연영상(§4 구성안)·GitLab 비공개 저장소·Topics·심사위원 권한·로그인 정보 별도 전달. 제출 커밋 태그와 Render 배포 커밋 일치 확인(§3). 참가 안내 원문과 항목 재대조.
 0. (사용자) 이번 PR 검토·병합 → Render 환경변수 `OPENAI_MODEL=gpt-6-luna`, `OPENAI_MODEL_FP_CANDIDATES=gpt-6.1-sol` 확인·변경(`docs/AI_COST.md` §7) → 엑셀 내려받아 인쇄 미리보기 확인(Microsoft Excel) → OpenAI 사용량 화면에서 모델별 금액 확인.
 0-1. (이전) PR 검토·병합 → Render 자동 재배포 확인 → `docs/USER_TEST.md` §C(비전문가 흐름) 실행. 기존 프로젝트는 그대로 열리며(삭제·재설정 없음) 초안 FP는 '업무 확인 전'으로 보인다. 결과를 VALIDATION에 '배포 환경 확인'으로 기록.

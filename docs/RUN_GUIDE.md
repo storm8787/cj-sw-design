@@ -34,6 +34,9 @@
 - 로컬은 http이므로 `COOKIE_SECURE=false`(기본). https 운영에서만 `true`.
 - 사내 SSL 검사 프록시 망에서 빌드가 실패하면 기관 루트 인증서를 넘깁니다: `docker build --secret id=extra_ca,src=<인증서.pem> -t sw-design-helper .`
 
+### 2-2a. Windows 시험판(설치 없이 실행, 미서명)
+Windows 11에서 Python·Node·Docker 없이 실행하는 시험판입니다. ZIP을 모두 압축 풀기 → `CJ-SW-Design.exe` 더블클릭 → 처음 실행 비밀번호 정하기 → 브라우저 자동 열림. 끝낼 때는 런처 창 [종료]. 받는 곳·데이터 위치·AI 설정·한계는 [Windows 시험판 안내](WINDOWS.md).
+
 ### 2-3. Docker 없이 소스로 실행(대안)
 필요: Python 3.12+와 uv, Node.js 22. 앱은 `.env` 파일을 읽지 않으므로 환경변수를 터미널에서 지정합니다.
 

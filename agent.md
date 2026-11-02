@@ -85,11 +85,15 @@ E2E_PASSWORD=<관리자 비밀번호> node e2e/reference.cjs  # 참고문서 기
 E2E_PASSWORD=<관리자 비밀번호> node e2e/examples.cjs   # 첫 화면 '예제로 체험하기'(2026-10-30 추가)
 # 샘플 시연판(서버 불필요)
 cd frontend && npm run demo:data && npm run build:demo && cd .. && node e2e/demo.cjs
+# Windows 시험판(Windows 빌드 PC, docs/WINDOWS.md)
+cd backend && uv sync --frozen --group desktop && uv run --frozen --group desktop python -m desktop.build
+cd backend && uv run --frozen python -m desktop.smoke --zip dist/<ZIP> --work <작업 폴더> --e2e
 # Docker 단일 서버
 docker build -t sw-design-helper . && docker run -p 8000:8000 -v swdata:/data --env-file .env sw-design-helper
 ```
 - 위 명령은 2026-10-29 모두 실제 실행해 확인했다(개발 서버는 화면 200·API 프록시 응답까지). `reference.cjs`·`examples.cjs`·시연판 명령은 2026-10-30 확인. 결과는 `docs/VALIDATION.md`.
 - `.env`에 `DATA_DIR`를 넣지 않는다(Docker 이미지 기본 `/data` 볼륨을 덮어씀, VALIDATION §10).
+- Windows 시험판 명령은 Windows runner(`.github/workflows/windows.yml`)에서 확인한다. Linux에서 만든 결과는 시험용이며 Windows판이라 부르지 않는다.
 - 테스트 배포 안내는 `docs/DEPLOY.md`, 배포 후 사용자 테스트 순서는 `docs/USER_TEST.md`, 시연판은 `docs/DEMO.md`.
 - AI 모델 비교시험(실제 호출·비용 발생, 가상 자료만): `cd backend && uv run python -m tools.ai_compare --model <모델> --budget 0.5 --out <파일>` (2026-10-30 실행, `docs/AI_COST.md`).
 - 새 명령은 실행해 VALIDATION에 기록하기 전까지 '검증 전'으로 본다.

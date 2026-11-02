@@ -183,3 +183,24 @@
   - Windows 실행 파일·새 배포 플랫폼·온보딩 마법사(범위 밖).
   - 예제 업로드 자동화 버튼(업로드 과정 자체를 체험해야 함).
 - 남은 확인: 참가 안내 원문 재대조, PowerShell·Docker Desktop 실행, Render·Pages 반영 상태.
+
+### D-026 (2026-11-02) Windows 로컬 실행 시험판: PyInstaller one-folder + 최소 런처
+- 지시: "기존 웹앱을 직원 PC에서 실행할 수 있는 Windows 시험판으로 묶어 달라. 직원은 Python·Node·Docker·Git·uv를 설치하지 않는다. ZIP → 압축 해제 → 더블클릭 → 서버 준비 → 브라우저 자동 열림." 기능·디자인을 새로 만들지 않는다.
+- 선택:
+  - PyInstaller 6.22.3 one-folder(창 모드)를 쓴다. 단일 EXE는 실행 때마다 임시 폴더에 풀려 시작이 느리고 백신 오탐이 잦다.
+  - Python 3.13.17 런타임과 `uv.lock` 의존성을 묶는다. 빌드 도구는 `desktop` 의존성 그룹에 두고, 일반 CI·Docker는 설치하지 않는다.
+  - 런처(`backend/desktop/`)가 기존 `create_app`을 한 프로세스 스레드 하나에서 Uvicorn으로 실행한다. app/ 코드는 설정 방식을 바꾸지 않는다. 런처는 환경변수만 정리해 넘긴다.
+  - 사용자 데이터는 `%LOCALAPPDATA%\CJ-SW-Design`의 data/config/logs/run으로 나누고, 프로그램 폴더와 분리한다.
+  - 비밀번호는 첫 실행 때 사용자가 정하고 scrypt 해시로 저장한다. 바꾸면 세션 키도 교체한다. 세션 키와 OpenAI 키는 DPAPI(현재 Windows 계정 범위)로 보호한다. 추가 의존성 없이 ctypes를 쓴다.
+  - Windows 자격 증명 관리자(keyring)는 채택하지 않았다. PyInstaller 백엔드 탐지 문제가 잦고, 같은 계정 범위라 보호 수준이 같다.
+  - 단일 인스턴스: 잠금 파일을 쓴다. 실행 정보의 무작위 instance 값을 `/__desktop/instance` 응답과 대조한 뒤에만 기존 화면을 연다(같은 포트의 다른 웹앱 오인 방지). 종료·보이기 요청에는 실행 정보 파일의 토큰이 필요하다.
+  - 포트: 기본 8765에 독점 바인딩한다. 실패하면 OS가 고른 빈 포트를 쓴다. 다른 프로세스는 끄지 않는다.
+  - TLS: truststore로 Windows 인증서 저장소를 쓴다(기관 프록시 인증서 대응). 검증은 끄지 않는다. 인증서·프록시 오류 문구를 구분했다.
+  - 검증: GitHub Actions windows-2025에서 빌드한다. 검사 도구 `desktop/smoke.py`가 ZIP을 새로 풀어 최소 PATH로 실행파일을 띄우고 기존 E2E 3종을 실행한다. artifact는 14일 보관한다.
+- 채택 안 함(이번 범위 밖):
+  - 설치 마법사·자동 업데이트·자동 시작·Windows 서비스·Electron·macOS판
+  - 코드 서명
+  - 공개 Release
+  - 모든 AI 공급자 설정 화면(OpenAI 키만 런처에서 설정)
+  - DB·업로드 원본 암호화
+- 남은 확인: 개발 도구가 없는 실제 직원 PC, SmartScreen·백신, 기관 프록시, 실제 한글 계정 경로, 런처 창 버튼 수동 확인.
