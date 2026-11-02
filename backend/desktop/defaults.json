@@ -1,0 +1,6 @@
+{
+  "_note": "Windows 시험판 기본 설정. 모델명은 render.yaml·.env.example과 같은 권장 구성(docs/AI_COST.md, 2026-10-30 비교시험 통과)이다. 바꾸면 세 곳을 함께 맞춘다.",
+  "port": 8765,
+  "openai_model": "gpt-6-luna",
+  "openai_model_fp_candidates": "gpt-6.1-sol"
+}
