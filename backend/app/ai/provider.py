@@ -15,6 +15,7 @@ from __future__ import annotations
 import json
 import logging
 import re
+import ssl
 import time
 from typing import Any, Callable
 
@@ -91,6 +92,14 @@ class MockProvider(AIProvider):
         return r.pop(0)
 
 
+def _root_cause(e: BaseException) -> BaseException:
+    seen = set()
+    while (e.__cause__ or e.__context__) and id(e) not in seen:
+        seen.add(id(e))
+        e = e.__cause__ or e.__context__
+    return e
+
+
 def _map_sdk_error(sdk, e: Exception, label: str, model: str) -> AIError:
     """openai·anthropic SDK는 같은 이름의 예외 계층을 쓴다."""
     if isinstance(e, sdk.APITimeoutError):
@@ -106,6 +115,11 @@ def _map_sdk_error(sdk, e: Exception, label: str, model: str) -> AIError:
     if isinstance(e, sdk.APIStatusError):
         return AIError(f"{label} 서버 오류({e.status_code}): 잠시 후 다시 시도하세요.")
     if isinstance(e, sdk.APIConnectionError):
+        cause = _root_cause(e)
+        if isinstance(cause, ssl.SSLCertVerificationError):
+            return AIError(f"{label} 서버 인증서를 확인하지 못했습니다(기관 보안 프록시 인증서 등). 인증서 검증은 끄지 않습니다. 전산 담당자에게 기관 루트 인증서 설치를 확인하세요.")
+        if "proxy" in type(cause).__name__.lower():
+            return AIError(f"{label} 연결에 쓰는 프록시 서버에 연결하지 못했습니다(HTTPS_PROXY 등 프록시 설정 확인).")
         return AIError(f"{label} 서버에 연결할 수 없습니다(주소·네트워크 확인).")
     return AIError(f"{label} 호출 실패: {type(e).__name__}")
 
