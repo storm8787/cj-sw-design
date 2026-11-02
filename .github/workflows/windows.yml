@@ -41,7 +41,7 @@ jobs:
         run: |
           npm ci --no-audit --no-fund
           npm run build
-      - name: 빌드 의존성(고정 버전: uv.lock, PyInstaller 6.22.3)
+      - name: "빌드 의존성(고정 버전 — uv.lock, PyInstaller 6.22.3)"
         working-directory: backend
         run: uv sync --frozen --group desktop
       - name: 런처 단위 테스트
