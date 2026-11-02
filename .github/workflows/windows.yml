@@ -28,8 +28,11 @@ jobs:
       PYTHONIOENCODING: "utf-8"
       UV_PYTHON: "3.13.14" # 묶을 Python 런타임(대상 PC의 Python과 무관)
       UV_PYTHON_PREFERENCE: only-managed
+      BUILD_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }} # 소스 커밋(PR이면 병합 커밋이 아니라 머리 커밋)
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }} # 기록하는 커밋과 빌드하는 소스를 같게
       - uses: astral-sh/setup-uv@v5
         with:
           version: "0.11.32"
@@ -64,7 +67,7 @@ jobs:
       - name: 시험용 ZIP·해시·빌드 정보·검증 결과 보관(14일)
         uses: actions/upload-artifact@v4
         with:
-          name: CJ-SW-Design-windows-x64-trial-${{ github.sha }}
+          name: CJ-SW-Design-windows-x64-trial-${{ github.event.pull_request.head.sha || github.sha }}
           retention-days: 14
           if-no-files-found: error
           path: |

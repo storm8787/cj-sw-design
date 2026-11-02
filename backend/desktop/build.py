@@ -39,7 +39,8 @@ def git(*args: str) -> str:
 def build_info() -> dict:
     import PyInstaller
 
-    commit = os.environ.get("GITHUB_SHA") or git("rev-parse", "HEAD") or "unknown"
+    # PR 실행의 GITHUB_SHA는 임시 병합 커밋이므로 워크플로가 넘기는 PR 머리 커밋(BUILD_COMMIT)을 먼저 쓴다
+    commit = os.environ.get("BUILD_COMMIT") or os.environ.get("GITHUB_SHA") or git("rev-parse", "HEAD") or "unknown"
     return {
         "app": APP,
         "commit": commit,
