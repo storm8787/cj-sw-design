@@ -232,3 +232,53 @@
 - 실제 앱(`https://sw-design-helper.onrender.com`)·시연판(`https://storm8787.github.io/cj-sw-design/`)은 이 세션에서 접속되지 않아(연결 실패) 운영 상태·모델 설정·새 화면 반영을 확인하지 못했다.
 - GitLab에서 상대 링크 표시, 공식 양식 PDF 분량, 시연영상은 확인·제작하지 않았다.
 - 참가 안내 원문은 첨부되지 않아 다시 확인하지 못했다(`docs/SUBMISSION.md`).
+
+## 11. Windows 로컬 실행 시험판(D-026, 2026-11-02)
+실행 환경: GitHub Actions `windows-2025` runner(Windows Server 2025 10.0.26100, AMD64), 워크플로 `.github/workflows/windows.yml`, 실행 41365610472.
+빌드 소스는 PR #9 머리 커밋 `709c905`(dirty=false)이고, Python 3.13.14(uv 관리)와 PyInstaller 6.22.3을 썼다. 가상 자료만 사용했고 실제 AI 호출은 없다(가짜 키).
+
+| 산출물 | 값 |
+|---|---|
+| 시험용 ZIP | `CJ-SW-Design-windows-x64-709c905.zip`, 34,605,549바이트, 1,107개 파일 |
+| SHA-256 | `870af1c4a6ca0c15d6cea7aa3ca4b05624622b47b6db2723a10ce200f6c25841` |
+| artifact | `CJ-SW-Design-windows-x64-trial-709c905bf500d98ded38065f12a025c2f9d03ab9`(id 13106809120, 묶음 34,398,449바이트, 만료 2026-11-16 00:13 UTC). ZIP·`.sha256`·`build_info.json`·`smoke-report.json` |
+| 서명 | 없음(미서명 시험판) |
+
+`desktop/smoke.py`는 빌드 폴더가 아니라 ZIP을 새로 풀어 실행했고, 109개 항목이 통과했다.
+- 실행파일은 PATH=`C:\Windows\System32;C:\Windows`만 주고 띄웠다.
+- 상속 환경변수(`OPENAI_API_KEY`·`AUTH_DISABLED=true`·`APP_ENV=development`·`DATA_DIR`)를 일부러 넣었다.
+- `LOCALAPPDATA`를 `…\사용자 홍길동\AppData Local`로 바꿨다.
+
+| 시험 | 결과 |
+|---|---|
+| 0 ZIP 내용 | `.env`·DB·기록·비밀 파일 없음, 일반 화면 빌드·예제·FP 기준값 포함, Pages 시연 데이터 없음. 빌드 단계에서 빌드 환경 비밀값 검사도 통과 |
+| 1 첫 실행 | 비밀번호 파일로 설정 → 서버 준비 2.1초(`http://127.0.0.1:8765/`) → 로그인. DB는 `%LOCALAPPDATA%\CJ-SW-Design\data`에 생기고, 프로그램 폴더·상속 DATA_DIR에는 없음. 비밀번호는 해시로, 세션 키는 DPAPI로 저장. 로그인 전 401, 틀린 비밀번호 401, CSRF 헤더 없으면 403, 샘플·운영 모드(상속값 무시), 로컬 http 쿠키 |
+| 2 기능 | 가상 샘플 생성·개요 수정. TXT·PDF·HWPX·DOCX·XLSX 업로드·추출(ok), 예제 C 4종 업로드·검토 실행, 기준 산정·목표예산 시나리오, 엑셀 14개 시트 열기 |
+| 3 기존 E2E | 패키지 서버에서 `flow`·`reference`·`examples` 통과. E2E 브라우저를 닫은 뒤에도 서버 계속 응답 |
+| 4 중복 실행 | 두 번째 실행은 0.3초 만에 기존 인스턴스를 확인하고 끝남. 실행 중인 프로세스 1개 |
+| 5 종료·재실행 | `--quit` 코드 0, 프로세스·포트·실행 정보 정리. 재실행 후 같은 비밀번호로 로그인, 프로젝트·업로드 원본·견적 유지 |
+| 6 폴더 이동·교체 | 옮긴 폴더, 새로 푼 ZIP 모두 같은 데이터(초기화 없음) |
+| 7 포트 충돌 | 선호 포트를 다른 웹앱이 쓰는 중이면 다음 빈 포트 사용. 중복 실행은 실제 인스턴스를 찾고, 다른 웹앱은 계속 응답 |
+| 8 강제 종료 | `taskkill /PID`(해당 프로세스만) 후 오래된 실행 정보를 무시하고 재실행. 실행 중 작업은 '중단', DB 정상 |
+| 9 시작 실패 | 손상된 settings.json이면 0.3초 만에 종료 코드 5, 기록에 원인·조치 |
+| 10 키 | 가짜 키 저장 시 파일에 원문 없음(DPAPI). 다시 시작하면 OpenAI 연결·권장 모델(gpt-6-luna, FP 후보 gpt-6.1-sol). 서버 응답·기록·백업 JSON에 키·비밀번호 없음. 키 삭제 후 샘플 모드 |
+| 11 창 모드 | 인자 없이 더블클릭 방식으로 실행하면 런처 창 '정보화 설계 도우미 — Windows 시험판' 표시, 정상 종료 |
+
+같은 실행에서 `tests/test_desktop.py`·`tests/test_security.py`도 통과했다. 같은 커밋의 Linux CI(backend·frontend·e2e·docker)와 Pages 시연판 워크플로도 성공했다.
+
+로컬(Linux):
+- 백엔드 pytest 144 passed(런처 5건, AI 연결 오류 구분 1건 추가).
+- Linux 시험 빌드(`linux-test-only`)에서 같은 검사 98개와 E2E가 통과했다. Windows 결과로 세지 않는다.
+
+미검증·한계:
+- runner에는 Python·Node·uv가 깔려 있다(실행파일은 최소 PATH로 띄움). **개발 도구가 없는 실제 직원 PC·가상 PC에서는 실행하지 않았다.**
+- 다음은 확인하지 않았다:
+  - SmartScreen·백신·기관 보안 프로그램 반응
+  - 기관 프록시·인증서 망에서의 AI 연결
+  - 실제 한글 Windows 계정 이름 경로
+  - 고배율 화면에서의 런처 창 모양
+- 런처 설정 창의 버튼 클릭(키 저장·삭제, 비밀번호 변경, 다시 시작)은 자동 시험하지 않았다. 같은 기능을 명령 옵션으로만 시험했다.
+- 창 모드 시험에서 기본 브라우저 자동 열기는 기록상 호출만 확인했다. 실제 브라우저 창은 보지 않았다.
+- PyInstaller 경고 두 가지는 앱 동작에 영향이 없음을 확인했다:
+  - `tzdata` 숨은 가져오기를 찾지 못했다는 경고: 앱은 시간대 기능을 쓰지 않는다.
+  - openai·anthropic 일부 하위 모듈(사용하지 않는 기능)을 수집하지 못했다는 경고.
