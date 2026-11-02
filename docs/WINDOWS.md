@@ -103,7 +103,7 @@ uv sync --frozen --group desktop
 uv run --frozen --group desktop python -m desktop.build
 ```
 - 결과: `backend\dist\CJ-SW-Design\`(배포 폴더)와 `CJ-SW-Design-windows-x64-<커밋>.zip`, `.sha256`, `build_info.json`.
-- 고정 버전: Python 3.13.17(uv 관리 런타임을 묶음), PyInstaller 6.22.3, truststore 0.10.5, 나머지는 `backend/uv.lock`.
+- 고정 버전: Python 3.13.14(uv 관리 런타임을 묶음), PyInstaller 6.22.3, truststore 0.10.5, 나머지는 `backend/uv.lock`.
 - 검증: `uv run --frozen python -m desktop.smoke --zip <ZIP> --work <작업 폴더> [--e2e]`.
   - ZIP을 새로 풀어 최소 PATH로 실행파일을 띄웁니다.
   - 실행 순서: 첫 실행 → 파서 → 견적·엑셀 → 기존 E2E → 중복 실행 → 재실행 → 폴더 이동 → 포트 충돌 → 강제 종료 → 시작 실패 → 가짜 키 → 창 모드.

@@ -188,7 +188,7 @@
 - 지시: "기존 웹앱을 직원 PC에서 실행할 수 있는 Windows 시험판으로 묶어 달라. 직원은 Python·Node·Docker·Git·uv를 설치하지 않는다. ZIP → 압축 해제 → 더블클릭 → 서버 준비 → 브라우저 자동 열림." 기능·디자인을 새로 만들지 않는다.
 - 선택:
   - PyInstaller 6.22.3 one-folder(창 모드)를 쓴다. 단일 EXE는 실행 때마다 임시 폴더에 풀려 시작이 느리고 백신 오탐이 잦다.
-  - Python 3.13.17 런타임과 `uv.lock` 의존성을 묶는다. 빌드 도구는 `desktop` 의존성 그룹에 두고, 일반 CI·Docker는 설치하지 않는다.
+  - Python 3.13.14 런타임과 `uv.lock` 의존성을 묶는다. 빌드 도구는 `desktop` 의존성 그룹에 두고, 일반 CI·Docker는 설치하지 않는다.
   - 런처(`backend/desktop/`)가 기존 `create_app`을 한 프로세스 스레드 하나에서 Uvicorn으로 실행한다. app/ 코드는 설정 방식을 바꾸지 않는다. 런처는 환경변수만 정리해 넘긴다.
   - 사용자 데이터는 `%LOCALAPPDATA%\CJ-SW-Design`의 data/config/logs/run으로 나누고, 프로그램 폴더와 분리한다.
   - 비밀번호는 첫 실행 때 사용자가 정하고 scrypt 해시로 저장한다. 바꾸면 세션 키도 교체한다. 세션 키와 OpenAI 키는 DPAPI(현재 Windows 계정 범위)로 보호한다. 추가 의존성 없이 ctypes를 쓴다.

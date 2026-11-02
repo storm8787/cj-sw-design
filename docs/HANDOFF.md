@@ -14,7 +14,7 @@
 |---|---|---|
 | 런처 | `backend/desktop/`: 127.0.0.1 바인딩, 선호 포트 사용 중이면 빈 포트, 한 사용자 한 인스턴스(잠금+실행 정보 대조), 준비 확인 후 브라우저, 60초 시한, 정상 종료 시 작업 '중단' 기록·DB 닫기, 최소 tkinter 창(상태·브라우저·설정·데이터 폴더·종료) | `docs/WINDOWS.md` |
 | 설정·비밀값 | 첫 실행 비밀번호(해시), 설치별 세션 키·OpenAI 키는 DPAPI 보호 파일(`%LOCALAPPDATA%\CJ-SW-Design\config`), 앱 설정 환경변수 정리 후 런처 값(운영 모드·인증·CSRF 유지, 로컬 http 쿠키) | `desktop/config.py`, `server.py` |
-| 패키징 | PyInstaller 6.22.3 one-folder(창 모드), Python 3.13.17 런타임 포함, 일반 화면 빌드·예제·기준값 포함, 금지 파일 검사·ZIP·SHA-256·build_info | `desktop/cj-sw-design.spec`, `build.py` |
+| 패키징 | PyInstaller 6.22.3 one-folder(창 모드), Python 3.13.14 런타임 포함, 일반 화면 빌드·예제·기준값 포함, 금지 파일 검사·ZIP·SHA-256·build_info | `desktop/cj-sw-design.spec`, `build.py` |
 | Windows 검증 | `.github/workflows/windows.yml`이 ZIP을 한글·공백 경로에 풀어 최소 PATH로 실행파일을 띄우고 `desktop/smoke.py` + 기존 E2E 3종 실행, artifact 14일 | VALIDATION §11 |
 | AI 오류 안내 | 인증서 확인 실패·프록시 실패를 구분(검증은 끄지 않음), Windows 인증서 저장소 사용(truststore) | `app/ai/provider.py` |
 

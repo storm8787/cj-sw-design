@@ -54,6 +54,6 @@
 | PyInstaller | 6.22.3 | GPLv2-or-later + 빌드한 프로그램 배포를 허용하는 예외(부트로더 포함) | 빌드 도구. 실행파일에 부트로더가 들어감 |
 | pyinstaller-hooks-contrib | 2026.9 | Apache-2.0 / GPLv2(분류자 두 개) | 빌드 도구 |
 | truststore | 0.10.5 | MIT | 시험판에 포함(Windows 인증서 저장소 사용) |
-| Python 런타임(uv 관리, python-build-standalone) | 3.13.17 | PSF(Python), 포함 라이브러리 각각의 라이선스(Tcl/Tk·OpenSSL·SQLite 등, 개별 확인 안 함) | 시험판에 포함 |
+| Python 런타임(uv 관리, python-build-standalone) | 3.13.14 | PSF(Python), 포함 라이브러리 각각의 라이선스(Tcl/Tk·OpenSSL·SQLite 등, 개별 확인 안 함) | 시험판에 포함 |
 
 - 시험판 ZIP에는 위 서버 의존성 전체와 화면 빌드 결과가 함께 들어간다. 재배포 전 각 라이선스 고지 필요 여부를 확인할 것(법률 검토 아님).
