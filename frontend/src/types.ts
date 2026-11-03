@@ -145,8 +145,10 @@ export interface Money {
   direct_total?: number;
   supply?: number;
   vat?: number;
+  total_before_adjustment?: number;
+  final_adjustment?: number;
   total?: number;
-  rounding?: { unit: number; mode: string; label: string };
+  rounding?: { unit: number; mode: string; label: string; policy?: string; applies_to?: string[]; example?: string };
   basis?: string[];
 }
 
@@ -169,6 +171,8 @@ export interface ScenarioResult {
   total: number;
   vat_method_text: string;
   matches_target: boolean;
+  unit_conflict?: boolean;
+  target_policy?: string;
   method_text: string;
   warnings: string[];
 }

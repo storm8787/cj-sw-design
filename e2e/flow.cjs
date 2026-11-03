@@ -127,10 +127,21 @@ function check(cond, msg) {
     }
     check(await page.getByText(/집계\(확정\)/).first().isVisible(), "전문가 확정 항목은 '집계(확정)'으로 구분");
 
-    // 8. 기준 산정 → 목표예산 시나리오
+    // 8. 끝수 처리(새 산정 기본 10원 미만 절사) → 기준 산정 → 목표예산 시나리오
+    check((await page.getByTestId("rounding-summary").innerText()).includes("10원 미만 절사(일의 자리 버림)"), "새 프로젝트 끝수 기본값 10원 미만 절사 표시");
+    await page.getByLabel("끝수 단위").selectOption("100");
+    check(await page.getByText(/저장된 설정 10원 미만 절사\(일의 자리 버림\) → 바꿀 설정 100원 미만 절사/).isVisible(), "끝수 설정 변경 전후·재산정 안내 표시");
+    await page.getByLabel("끝수 단위").selectOption("10");
     await page.getByRole("button", { name: "기준 산정 실행·저장" }).click();
     await page.getByText("총액(부가세 포함)").first().waitFor();
     await page.locator(".estimate").first().waitFor();
+    check(await page.locator(".estimate").first().getByText("최종 끝수조정(참고 조정)").isVisible(), "견적에 최종 끝수조정 행 표시");
+    {
+      const txt = await page.locator(".estimate table.money").first().innerText();
+      const won = (label) => Number((txt.split("\n").find((l) => l.startsWith(label)) || "").replace(/[^0-9-]/g, ""));
+      const total = won("총액(부가세 포함)");
+      check(total > 0 && total % 10 === 0 && won("부가세 포함 합계") + won("최종 끝수조정") === total, `화면 총액 ${total.toLocaleString()}원은 10원 단위이고 조정 전 합계+끝수조정과 같음`);
+    }
     check(await page.locator(".estimate .badge", { hasText: /추정 산정|부분 산정/ }).first().isVisible(), "견적 버전에 산정 상태(추정/부분) 표시");
     await page.getByLabel("목표 금액").fill("50000000");
     await page.getByRole("button", { name: "시나리오 만들기" }).click();

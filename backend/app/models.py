@@ -249,7 +249,8 @@ class DirectExpense(M):
 
 
 class Rounding(M):
-    unit: Literal[1, 10, 100, 1000] = 1
+    # 새 산정 기본값: 10원 미만 절사(2026-11-03). 저장된 설정은 값을 그대로 읽는다(기존 unit=1 재해석 안 함)
+    unit: Literal[1, 10, 100, 1000] = 10
     mode: Literal["down", "half_up"] = "down"
 
 

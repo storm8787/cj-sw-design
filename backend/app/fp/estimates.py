@@ -38,6 +38,9 @@ def input_hash(p: Project, std: dict[str, Any], method: str) -> str:
             "boundary": p.overview.boundary_name,
             "std": std.get("id"),
             "method": method,
+            # 끝수 정책이 바뀐 뒤(최종 총액 끝수조정) 다시 계산하면 금액이 달라지는 설정만 '갱신 필요'가 되게 한다.
+            # 원 미만 단위는 모든 금액이 정수라 결과가 같으므로 이전 견적의 상태를 바꾸지 않는다.
+            **({"rounding_policy": cost.ROUNDING_POLICY} if p.cost_settings.rounding.unit != 1 else {}),
         }
     )
 

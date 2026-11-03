@@ -299,11 +299,28 @@ const FACTORS: [keyof CostSettings, string, string[]][] = [
   ["security_level", "보안성 요구수준", ["1 1가지 (0.97)", "2 2가지 (1.00)", "3 3가지 (1.03)", "4 4가지 (1.06)", "5 5가지 이상 (1.08)"]],
 ];
 
+// 끝수 단위·방식 표시(백엔드 cost.rounding_label과 같은 말). 숫자 예시는 12,345.6원 기준
+const ROUND_UNITS: [number, string, string][] = [
+  [1, "원 미만", "소수점 이하"],
+  [10, "10원 미만", "일의 자리"],
+  [100, "100원 미만", "십의 자리까지"],
+  [1000, "1,000원 미만", "백의 자리까지"],
+];
+function roundExample(unit: number, mode: string): string {
+  const x = 12345.6;
+  const v = mode === "down" ? Math.floor(x / unit) * unit : Math.floor(x / unit + 0.5) * unit; // 표시용 예시(금액 계산은 서버 Decimal)
+  return `12,345.6 → ${v.toLocaleString("ko-KR")}원`;
+}
+function roundLabel(unit: number, mode: string): string {
+  const [, name, digits] = ROUND_UNITS.find((u) => u[0] === unit) ?? ROUND_UNITS[0];
+  return mode === "down" ? `${name} 절사(${digits} 버림)` : `${name} 반올림(${digits} 반올림)`;
+}
+
 function CostPanel() {
   const { data, setData, run, busy, system } = useProject();
   const pid = data.project.id;
   const [cs, setCs] = useState<CostSettings>(data.project.cost_settings);
-  const [preview, setPreview] = useState<{ complete: boolean; warnings: string[]; basis?: EstimateBasis; money: { total?: number; supply?: number; basis?: string[] }; fp: { total_fp: string } } | null>(null);
+  const [preview, setPreview] = useState<{ complete: boolean; warnings: string[]; basis?: EstimateBasis; money: { total?: number; supply?: number; basis?: string[]; rounding?: { label: string } }; fp: { total_fp: string } } | null>(null);
   useEffect(() => setCs(data.project.cost_settings), [data.project.cost_settings]);
   useEffect(() => {
     api.get<typeof preview>(`${P(pid)}/estimate-preview`).then(setPreview).catch(() => setPreview(null));
@@ -351,19 +368,29 @@ function CostPanel() {
         <Field label="FP당 단가(원)" hint="비우면 기준 버전 값(605,784원, 2024 가이드 표기 양식값)">
           <input value={cs.unit_price ?? ""} onChange={(e) => setCs({ ...cs, unit_price: e.target.value ? Number(e.target.value.replace(/[^0-9]/g, "")) : null })} placeholder="605784" />
         </Field>
-        <Field label="끝수 처리" hint="공식 규정 미확인 — 기관 기준에 맞게 선택">
+        <Field label="끝수 처리" hint="새 산정 기본값: 10원 미만 절사(일의 자리 버림). 공식 규정 미확인 — 기관 기준에 맞게 선택">
           <div className="row-actions">
             <select value={cs.rounding.unit} onChange={(e) => setCs({ ...cs, rounding: { ...cs.rounding, unit: Number(e.target.value) as 1 } })} aria-label="끝수 단위">
-              <option value={1}>원 미만</option>
-              <option value={10}>10원 미만</option>
-              <option value={100}>100원 미만</option>
-              <option value={1000}>1,000원 미만</option>
+              {ROUND_UNITS.map(([u, name, digits]) => (
+                <option key={u} value={u}>
+                  {name}({digits}) · {roundExample(u, cs.rounding.mode)}
+                </option>
+              ))}
             </select>
             <select value={cs.rounding.mode} onChange={(e) => setCs({ ...cs, rounding: { ...cs.rounding, mode: e.target.value as "down" } })} aria-label="끝수 방식">
-              <option value="down">절사</option>
+              <option value="down">절사(버림)</option>
               <option value="half_up">반올림</option>
             </select>
           </div>
+          <p className="small muted" data-testid="rounding-summary">
+            {roundLabel(cs.rounding.unit, cs.rounding.mode)} · 적용: 개발원가·이윤·부가세 각각과 최종 총액(차액은 '최종 끝수조정' 행으로 따로 표시) · 직접경비 입력액은 그대로
+          </p>
+          {(cs.rounding.unit !== data.project.cost_settings.rounding.unit || cs.rounding.mode !== data.project.cost_settings.rounding.mode) && (
+            <p className="warn" role="status">
+              저장된 설정 {roundLabel(data.project.cost_settings.rounding.unit, data.project.cost_settings.rounding.mode)} → 바꿀 설정 {roundLabel(cs.rounding.unit, cs.rounding.mode)}.
+              '설정 저장' 후 <b>기준 산정 실행·저장</b>을 눌러야 새 견적에 반영됩니다(이전 견적은 그대로 남음).
+            </p>
+          )}
         </Field>
       </div>
       <h4>직접경비(장비 구매비 제외)</h4>
@@ -399,6 +426,7 @@ function CostPanel() {
           ) : (
             <>
               FP {preview.fp.total_fp} → 공급가액 {won(preview.money.supply)} / 총액(부가세 포함) {won(preview.money.total)}
+              {preview.money.rounding ? ` · ${preview.money.rounding.label}` : ""}
             </>
           )}{" "}
           <BasisBadge b={preview.basis} />
@@ -466,9 +494,23 @@ function Estimates() {
                   <tr><td>직접경비</td><td>{won(m.direct_total)}</td></tr>
                   <tr><td>SW개발비(부가세 별도)</td><td>{won(m.supply)}</td></tr>
                   <tr><td>부가세</td><td>{won(m.vat)}</td></tr>
+                  {m.final_adjustment !== undefined && (
+                    <>
+                      <tr><td>부가세 포함 합계(최종 끝수조정 전)</td><td>{won(m.total_before_adjustment)}</td></tr>
+                      <tr><td>최종 끝수조정(참고 조정)</td><td>{m.final_adjustment > 0 ? "+" : ""}{won(m.final_adjustment)}</td></tr>
+                    </>
+                  )}
                   <tr className="total"><td>총액(부가세 포함)</td><td>{won(m.total)}</td></tr>
                 </tbody>
               </table>
+            ) : null}
+            {m.complete && m.rounding ? (
+              <p className="muted small">
+                끝수 처리: {m.rounding.label}
+                {m.final_adjustment !== undefined
+                  ? " · 개발원가·이윤·부가세와 최종 총액에 적용, 직접경비 입력액은 그대로. 최종 끝수조정은 견적 끝수 처리용 참고 조정(세무·계약상 취급 미확인)"
+                  : " · 이 견적을 만든 당시 방식(개발원가·이윤·부가세에만 적용, 최종 총액 끝수조정 없음)"}
+              </p>
             ) : null}
             <details>
               <summary>계산 근거 보기</summary>
@@ -507,7 +549,7 @@ function Estimates() {
                           <tr><td>예산 대응 환산 FP(참고)</td><td>{num(r.equivalent_fp, 2)} FP</td></tr>
                           <tr><td>예산 대응 환산 단가(참고)</td><td>{won(Number(r.equivalent_unit_price))}</td></tr>
                           <tr><td>조정 개발원가 / 이윤 / 직접경비</td><td>{won(r.dev_cost)} / {won(r.profit)} / {won(r.direct_total)}</td></tr>
-                          <tr><td>끝수조정(원 단위 일치용)</td><td>{won(r.rounding_adjustment)}</td></tr>
+                          <tr><td>목표액 맞춤 끝수조정(참고)</td><td>{won(r.rounding_adjustment)}</td></tr>
                           <tr><td>공급가액 / 부가세</td><td>{won(r.supply)} / {won(r.vat)} ({r.vat_method_text})</td></tr>
                           <tr className="total"><td>최종 참고 금액</td><td>{won(r.total)} {r.matches_target ? "· 목표액 일치" : "· 목표액과 차이 있음"}</td></tr>
                           <tr><td>기능 유지</td><td>FP 항목 {s.fp_ids.length}건 그대로 유지(삭제·추가 없음)</td></tr>
