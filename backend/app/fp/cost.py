@@ -23,9 +23,21 @@ def rnd(x: Decimal, unit: int, mode: str) -> int:
     return int(q * u)
 
 
+ROUNDING_POLICY = "final-total-v2"  # 2026-11-03: 최종 총액에도 선택 단위를 적용하고 차액을 '최종 끝수조정'으로 따로 표시
+ROUNDING_APPLIES = ["개발원가", "이윤", "부가세", "최종 총액(차액은 최종 끝수조정 행)"]
+_UNIT_TEXT = {1: ("원 미만", "소수점 이하", "1원 단위 금액"), 10: ("10원 미만", "일의 자리", "10원 단위 금액"),
+              100: ("100원 미만", "십의 자리까지", "100원 단위 금액"), 1000: ("1,000원 미만", "백의 자리까지", "1,000원 단위 금액")}
+
+
 def rounding_label(unit: int, mode: str) -> str:
-    unit_s = {1: "원 미만", 10: "10원 미만", 100: "100원 미만", 1000: "1,000원 미만"}[unit]
-    return f"{unit_s} {'절사' if mode == 'down' else '반올림'}"
+    """예: '10원 미만 절사(일의 자리 버림)'. 반올림은 절사와 구분해 표시한다."""
+    name, digits, _ = _UNIT_TEXT[unit]
+    return f"{name} {'절사' if mode == 'down' else '반올림'}({digits} {'버림' if mode == 'down' else '반올림'})"
+
+
+def rounding_example(unit: int, mode: str) -> str:
+    x = Decimal("12345.6")
+    return f"{x:,} → {rnd(x, unit, mode):,}원"
 
 
 def size_factor(std: dict[str, Any], fp: Decimal) -> Decimal:
@@ -86,6 +98,21 @@ def phase_multiplier(overview: Overview) -> tuple[Decimal | None, str, list[str]
     return total, f"{names} 단계만 포함(사용자 입력 비율 합 {total}, 공식 비율 미확인)", ["단계 비율은 사용자 입력값이며 공식 기준 미확인"]
 
 
+def money_steps(dev_cost_raw: Decimal, profit_rate: Decimal, direct: int, vat_rate: Decimal, unit: int, mode: str) -> dict[str, Any]:
+    """금액 단계(FP_RULES §5): 개발원가 → 이윤 → (+직접경비) 공급가액 → 부가세 → 최종 총액.
+    끝수 처리 지점: 개발원가·이윤·부가세 각각, 그리고 최종 총액. 직접경비 입력액과 공급가액 합산은 그대로 둔다.
+    최종 총액 차액은 final_adjustment(음수 가능)로 따로 돌려준다 — 다른 항목 숫자를 바꿔 숨기지 않는다."""
+    dev_cost = rnd(dev_cost_raw, unit, mode)
+    profit_raw = Decimal(dev_cost) * profit_rate
+    profit = rnd(profit_raw, unit, mode)
+    supply = dev_cost + profit + direct
+    vat = rnd(Decimal(supply) * vat_rate, unit, mode)
+    total_before = supply + vat
+    total = rnd(Decimal(total_before), unit, mode)
+    return {"dev_cost": dev_cost, "profit_raw": profit_raw, "profit": profit, "supply": supply, "vat": vat,
+            "total_before_adjustment": total_before, "final_adjustment": total - total_before, "total": total}
+
+
 def compute_cost(std: dict[str, Any], settings: CostSettings, overview: Overview, total_fp: Decimal) -> dict[str, Any]:
     unit, mode = settings.rounding.unit, settings.rounding.mode
     warnings: list[str] = []
@@ -134,12 +161,9 @@ def compute_cost(std: dict[str, Any], settings: CostSettings, overview: Overview
     basis_lines.append(f"× 단계 비율 {pm} ({phase_text})")
 
     dev_cost_raw = total_fp * Decimal(unit_price) * product * pm
-    dev_cost = rnd(dev_cost_raw, unit, mode)
-    profit_raw = Decimal(dev_cost) * profit_rate
-    profit = rnd(profit_raw, unit, mode)
-    supply = dev_cost + profit + direct
-    vat = rnd(Decimal(supply) * vat_rate, unit, mode)
-    total = supply + vat
+    mv = money_steps(dev_cost_raw, profit_rate, direct, vat_rate, unit, mode)
+    dev_cost, profit_raw, profit, supply, vat = mv["dev_cost"], mv["profit_raw"], mv["profit"], mv["supply"], mv["vat"]
+    total_before, final_adjust, total = mv["total_before_adjustment"], mv["final_adjustment"], mv["total"]
     rl = rounding_label(unit, mode)
     basis_lines += [
         f"= 개발원가(보정 후) {dev_cost_raw:.4f} → {rl} {dev_cost:,}원",
@@ -147,7 +171,9 @@ def compute_cost(std: dict[str, Any], settings: CostSettings, overview: Overview
         f"직접경비 합계 {direct:,}원",
         f"SW개발비(부가세 별도) = {dev_cost:,} + {profit:,} + {direct:,} = {supply:,}원",
         f"부가세 = {supply:,} × {vat_rate} → {rl} {vat:,}원",
-        f"총액(부가세 포함) = {total:,}원",
+        f"부가세 포함 합계(최종 끝수조정 전) = {supply:,} + {vat:,} = {total_before:,}원",
+        f"최종 끝수조정 = {rl} 적용 {total:,} − {total_before:,} = {final_adjust:+,}원 (견적 끝수 처리용 참고 조정 — 세무·계약상 취급 미확인)",
+        f"총액(부가세 포함) = {total_before:,} {final_adjust:+,} = {total:,}원",
     ]
     return {
         "complete": True,
@@ -169,8 +195,10 @@ def compute_cost(std: dict[str, Any], settings: CostSettings, overview: Overview
         "supply": supply,
         "vat_rate": str(vat_rate),
         "vat": vat,
+        "total_before_adjustment": total_before,
+        "final_adjustment": final_adjust,
         "total": total,
-        "rounding": {"unit": unit, "mode": mode, "label": rl},
+        "rounding": {"unit": unit, "mode": mode, "label": rl, "policy": ROUNDING_POLICY, "applies_to": ROUNDING_APPLIES, "example": rounding_example(unit, mode)},
         "basis": basis_lines,
         "equipment_excluded": True,
     }
@@ -231,7 +259,13 @@ def target_scenario(base: dict[str, Any], target_amount: int, includes_vat: bool
     if vat_method == "inverse":
         warnings.append(f"공급가액×세율({vat_by_rate:,}원)로는 목표액과 정확히 맞출 수 없어 부가세를 역산(목표액 − 공급가액 = {vat_t:,}원)했습니다. 차이 {vat_t - vat_by_rate:+,}원.")
     if adjust:
-        warnings.append(f"원 단위 일치를 위해 끝수조정 {adjust:+,}원을 별도 행으로 표시합니다.")
+        warnings.append(f"목표액에 맞추기 위한 끝수조정 {adjust:+,}원을 별도 행으로 표시합니다(목표액 맞춤 참고 조정 — 기준 산정의 최종 끝수조정과 다름).")
+    # 목표액이 끝수 단위의 배수가 아니면 '목표액 정확 일치'와 '최종 금액 끝수 처리'를 동시에 만족할 수 없다. 목표액은 고치지 않는다
+    goal = target_amount if includes_vat else supply_t
+    unit_conflict = unit > 1 and goal % unit != 0
+    if unit_conflict:
+        warnings.append(f"목표액 {target_amount:,}원은 선택한 끝수 단위({rounding_label(unit, mode)})의 배수가 아니라, 목표액 정확 일치와 끝수 처리를 동시에 만족할 수 없습니다. "
+                        f"이 시나리오는 목표액 맞춤(참고 정책)을 우선했고 최종 참고 금액은 {unit:,}원 단위가 아닙니다(단위 기준이면 {rnd(Decimal(goal), unit, mode):,}원, 차이 {rnd(Decimal(goal), unit, mode) - goal:+,}원).")
     return {
         "kind": "target_budget_reference",
         "label": "목표예산 시나리오(참고 견적, 공식 측정값 아님)",
@@ -259,6 +293,8 @@ def target_scenario(base: dict[str, Any], target_amount: int, includes_vat: bool
         "vat_by_rate": vat_by_rate,
         "vat_residual": vat_t - vat_by_rate,
         "matches_target": (total_t == target_amount) if includes_vat else (supply_t == target_amount),
+        "target_policy": "목표액 맞춤(참고 정책) — 최종 참고 금액을 목표액에 맞추며, 기준 산정의 최종 끝수조정은 적용하지 않음",
+        "unit_conflict": unit_conflict,
         "method_text": "단일 조정률 r = (목표 공급가액 − 직접경비) ÷ (1+이윤율) ÷ 기준 개발원가(반올림 전). "
         "기준 FP·분류·가중치는 바꾸지 않고, 환산 FP(기준FP×r)와 환산 단가(단가×r)는 예산 대응 참고값으로만 표시.",
         "warnings": warnings,

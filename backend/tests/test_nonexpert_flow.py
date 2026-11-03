@@ -31,14 +31,19 @@ def pj(r):
     return r.json()
 
 
-def independent_money(fp: Decimal) -> dict[str, int]:
+def independent_money(fp: Decimal, unit: int = 10) -> dict[str, int]:
     """FP_RULES.md §5: 개발원가 = FP × 605,784 × 규모(500FP 미만 1.28) × 연계 0.94 × 성능 0.95 × 호환 1.00 × 보안 1.03,
-    이윤 0.2(양식 예시값), 원 미만 절사, 부가세 10%."""
-    dev = int((fp * 605784 * Decimal("1.28") * Decimal("0.94") * Decimal("0.95") * Decimal("1.00") * Decimal("1.03")).to_integral_value(ROUND_DOWN))
-    profit = int((Decimal(dev) * Decimal("0.2")).to_integral_value(ROUND_DOWN))
+    이윤 0.2(양식 예시값), 부가세 10%. 끝수: 새 프로젝트 기본 10원 미만 절사 — 개발원가·이윤·부가세·최종 총액 각각."""
+    u = Decimal(unit)
+
+    def down(x: Decimal) -> int:
+        return int((x / u).to_integral_value(ROUND_DOWN) * u)
+
+    dev = down(fp * 605784 * Decimal("1.28") * Decimal("0.94") * Decimal("0.95") * Decimal("1.00") * Decimal("1.03"))
+    profit = down(Decimal(dev) * Decimal("0.2"))
     supply = dev + profit
-    vat = int((Decimal(supply) * Decimal("0.1")).to_integral_value(ROUND_DOWN))
-    return {"dev_cost": dev, "profit": profit, "supply": supply, "total": supply + vat}
+    vat = down(Decimal(supply) * Decimal("0.1"))
+    return {"dev_cost": dev, "profit": profit, "supply": supply, "total": down(Decimal(supply + vat))}
 
 
 def _cells(wb, sheet):
