@@ -380,7 +380,8 @@ def _cost(ws, p: Project, est: EstimateVersion, checks) -> dict[str, str]:
     r_cost_h = r + 1  # 개발원가 산정 머리글 2행
     r_cost_v = r_cost_h + 2
     r_sum = r_cost_v + 2  # 금액 요약 시작
-    sum_rows = ["dev", "profit", "direct", "supply", "vat", "total"]
+    final_round = "final_adjustment" in m  # 2026-11-03 정책 견적만. 이전 견적은 당시 방식(총액 = 공급가액 + 부가세) 그대로
+    sum_rows = ["dev", "profit", "direct", "supply", "vat"] + (["pre_total", "final_adj"] if final_round else []) + ["total"]
     r_direct = r_sum + len(sum_rows) + 2  # 직접경비 구획 제목
     r_direct_h = r_direct + 1
     r_direct_total = r_direct_h + 1 + len(direct_items)
@@ -436,6 +437,12 @@ def _cost(ws, p: Project, est: EstimateVersion, checks) -> dict[str, str]:
         "vat": ("부가가치세", Decimal(m["vat_rate"]), "0%", "=" + _round_formula(f"J{r_sum + 3}*{vr_cell}", unit, mode)),
         "total": ("총액(부가세 포함)", None, None, f"=J{r_sum + 3}+J{r_sum + 4}"),
     }
+    if final_round:
+        lines |= {
+            "pre_total": ("부가세 포함 합계(최종 끝수조정 전)", None, None, f"=J{r_sum + 3}+J{r_sum + 4}"),
+            "final_adj": ("최종 끝수조정(참고 조정)", None, None, f"=J{r_sum + 7}-J{r_sum + 5}"),
+            "total": ("총액(부가세 포함)", None, None, "=" + _round_formula(f"J{r_sum + 5}", unit, mode)),
+        }
     for i, key in enumerate(sum_rows):
         rr = r_sum + i
         label, rate, rfmt, formula = lines[key]
@@ -450,7 +457,9 @@ def _cost(ws, p: Project, est: EstimateVersion, checks) -> dict[str, str]:
         cells[key] = f"J{rr}"
     cells["profit_rate"] = pr_cell
     cells["vat_rate"] = vr_cell
-    note(ws, r_sum + len(sum_rows), f"이윤율 근거: {std['profit_rate']['basis']} · 부가세율 근거: {std['vat_rate']['basis']} · 장비 구매비·별도 유료 SW는 포함하지 않음", COST_COLS)
+    note(ws, r_sum + len(sum_rows), f"이윤율 근거: {std['profit_rate']['basis']} · 부가세율 근거: {std['vat_rate']['basis']} · 장비 구매비·별도 유료 SW는 포함하지 않음"
+         + (f" · 끝수 처리 {m['rounding']['label']}: 개발원가·이윤·부가세 각각과 최종 총액에 적용, 직접경비 입력액은 그대로. 최종 끝수조정은 견적 끝수 처리용 참고 조정(세무·계약상 취급 미확인)" if final_round
+            else f" · 끝수 처리 {m['rounding']['label']}: 개발원가·이윤·부가세에 적용(이 견적을 만든 당시 방식 — 최종 총액 끝수조정 없음)"), COST_COLS)
 
     # ○ 직접경비
     section(ws, r_direct, "직접경비", "(단위: 원)", COST_COLS)
@@ -524,8 +533,12 @@ def _cost(ws, p: Project, est: EstimateVersion, checks) -> dict[str, str]:
     # 검산(수식 셀 ↔ Python 계산값)
     py = {"fp": Decimal(m["total_fp"]), "size": Decimal(m["size_factor"]), "dev_raw": Decimal(m["dev_cost_raw"]), "dev": m["dev_cost"], "profit": m["profit"],
           "direct": m["direct_total"], "supply": m["supply"], "vat": m["vat"], "total": m["total"]}
+    if final_round:
+        py |= {"pre_total": m["total_before_adjustment"], "final_adj": m["final_adjustment"]}
     for key, label in (("fp", "총 기능점수"), ("size", "규모 보정계수"), ("dev_raw", "개발원가(끝수 전)"), ("dev", "개발원가"), ("profit", "이윤"), ("direct", "직접경비"),
-                       ("supply", "SW개발비(VAT 별도)"), ("vat", "부가세"), ("total", "총액")):
+                       ("supply", "SW개발비(VAT 별도)"), ("vat", "부가세"), ("pre_total", "총액(최종 끝수조정 전)"), ("final_adj", "최종 끝수조정"), ("total", "총액")):
+        if key not in cells:
+            continue
         checks.append({"label": f"개발비 {label}", "sheet": ws.title, "formula_cell": cells[key], "python": float(py[key]), "fmt": WON_DEC if key in ("dev_raw", "size") else (FP_FMT if key == "fp" else WON)})
 
     r = section(ws, r, "계산 근거(Python 계산 과정)")
@@ -574,10 +587,11 @@ def _scenarios(ws, est: EstimateVersion, cost_cells: dict[str, str], checks):
         row("예산 대응 환산 FP당 단가(참고값)", f"={base}{cost_cells['price']}*{ratio}", Decimal(res["equivalent_unit_price"]), WON_DEC, "공식 단가 아님")
         row("조정 개발원가", None, res["dev_cost"], WON)
         row("조정 이윤", None, res["profit"], WON)
-        row("끝수조정(원 단위 일치용)", None, res["rounding_adjustment"], WON, "가상의 비용 항목이 아니라 원 단위 합계를 맞추기 위한 표시")
+        row("목표액 맞춤 끝수조정(참고)", None, res["rounding_adjustment"], WON, "가상의 비용 항목이 아니라 목표액에 맞추기 위한 표시(기준 산정의 최종 끝수조정과 다른 별도 참고 정책)")
         row("공급가액 합계", None, res["supply"], WON)
         vat = row("부가가치세", None, res["vat"], WON)
-        tot = row("최종 참고 금액(부가세 포함)", f"={sup}+{vat}", res["total"], WON, ("목표액과 일치" if res["matches_target"] else f"목표액과 {res['vat_residual']:+,}원 차이(부가세 끝수)"), strong=True)
+        tot = row("최종 참고 금액(부가세 포함)", f"={sup}+{vat}", res["total"], WON, ("목표액과 일치" if res["matches_target"] else f"목표액과 {res['vat_residual']:+,}원 차이(부가세 끝수)")
+                  + (" · 목표액이 끝수 단위의 배수가 아니라 끝수 처리와 동시에 만족할 수 없음(목표액 맞춤 우선)" if res.get("unit_conflict") else ""), strong=True)
         checks.append({"label": f"{sc.id} 조정률", "sheet": ws.title, "formula_cell": ratio, "python": float(Decimal(res["adjustment_ratio"])), "fmt": "0.000000"})
         checks.append({"label": f"{sc.id} 최종 참고 금액", "sheet": ws.title, "formula_cell": tot, "python": float(res["total"]), "fmt": WON})
         put(ws, r, 1, "기능 유지 확인", bold=True, fill=FILL_LABEL)
