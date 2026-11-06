@@ -35,6 +35,7 @@ Render는 GitHub 저장소 연결과 화면 입력만으로 배포·HTTPS·비�
 | 로그인 비밀번호 | `ADMIN_PASSWORD` | 10자 이상 | **사용자** (Render 화면, 비밀값) |
 | (선택) 비밀번호 해시 | `ADMIN_PASSWORD_HASH` | `scrypt$…` | 사용자 — 쓰면 `ADMIN_PASSWORD`는 지움. 생성: `cd backend && uv run python -m app.auth hash` |
 | HTTPS 쿠키 | `COOKIE_SECURE` | `true` | render.yaml |
+| 로그인 실패 제한 단위 | `TRUSTED_PROXY_HOPS` | `1`(기본). 배포 후 아래 §4-1로 확인해 2 이상이면 그 값 | render.yaml |
 | 데이터 영속 저장 | `DATA_DIR` + 디스크 | `/data`, 디스크 1GB를 `/data`에 연결 | render.yaml |
 | AI(기본 OpenAI) | `OPENAI_API_KEY` | 사용자 키 | **사용자** (Render 화면, 비밀값). 비우면 샘플 모드 |
 | AI 모델 | `OPENAI_MODEL` | `gpt-6-luna`(2026-10-30 비교시험 통과, `docs/AI_COST.md`) | render.yaml |
@@ -63,10 +64,32 @@ Health Check Path `/api/health`, Advanced → Disk 추가(Mount Path `/data`, 1G
 ## 4. 운영 중 주의
 - **실제 사업 문서·개인정보는 올리지 않는다.** 테스트 서버는 국외(싱가포르) 상용 클라우드다. 실데이터 사용은 기관 보안 검토 후 결정.
 - 외부 AI로 보내는 내용은 요청마다 전송 범위를 보여 주고 동의를 받으며, 문서 원문은 문서별 동의가 따로 필요하다.
-- 로그인 실패 5회/5분 제한은 배포 프록시 주소 단위로 걸려 모든 접속자가 함께 5분간 막힐 수 있다(단일 관리자 테스트용 한계).
+- 로그인 실패 5회/5분 제한은 **접속자별**로 걸린다(§4-1). 프록시 단 수가 맞지 않으면 모든 접속자가 함께 막힐 수 있으므로 배포 후 한 번 확인한다.
 - 백업: 프로젝트별 '7 엑셀 → JSON 백업 내려받기'(업로드 원본 제외). 디스크 자체 백업(스냅샷)은 Render 안내를 확인.
 - 비밀번호·키 교체: Render → 서비스 → Environment에서 값 변경 → 자동 재시작. `SECRET_KEY`를 바꾸면 모든 로그인 세션이 끊긴다.
 - 테스트가 끝나면 Render에서 서비스(디스크 포함)를 삭제해 과금을 멈춘다. 삭제하면 데이터도 지워지므로 필요한 프로젝트는 먼저 JSON 백업.
+
+## 4-1. 로그인 실패 제한이 '접속자별'로 걸리는지 확인(배포 후 1회, 2026-11-06 추가)
+
+리버스 프록시 뒤에서는 서버가 보는 접속 주소가 프록시 주소라서, 설정이 맞지 않으면 **한 사람의 오타 5회가
+다른 접속자까지 5분간 막는다**. 심사 기간에 여러 심사위원이 같은 비밀번호로 접속하므로 배포 후 한 번 확인한다.
+
+앱은 `X-Forwarded-For`를 **오른쪽에서** `TRUSTED_PROXY_HOPS`번째 값으로 접속자를 식별한다.
+왼쪽 값은 클라이언트가 위조할 수 있어 신뢰하지 않는다(`backend/app/auth.py::client_ip`).
+
+1. 배포된 앱에 로그인한 뒤, 같은 브라우저에서 `https://<서비스 주소>/api/system` 을 열고 `client` 항목을 본다.
+   ```json
+   "client": { "peer": "10.x.x.x", "forwarded_count": 1, "trusted_proxy_hops": 1,
+               "login_throttle_key": "<내 공인 IP>", "shared_key_warning": "" }
+   ```
+2. 판정
+   - `login_throttle_key`가 **본인 공인 IP**(검색창에 "my ip"로 확인한 값)와 같고 `shared_key_warning`이 비어 있으면 **정상**. 더 할 일 없음.
+   - `shared_key_warning`에 문구가 있거나 `login_throttle_key`가 `peer`와 같으면 → `forwarded_count` 값을 그대로
+     Render → 서비스 → **Environment** → `TRUSTED_PROXY_HOPS`에 넣고 저장(자동 재시작) → 1번을 다시 확인.
+   - `forwarded_count`가 `0`이면 프록시가 헤더를 주지 않는 것이므로 Render 지원에 문의한다. 이 경우에는 제한이 공용으로 걸리므로
+     심사 안내에 "비밀번호 5회 실패 시 5분 뒤 재시도"를 적어 둔다.
+3. **운영 서버에서 일부러 5회 실패를 만들어 확인하지 않는다**(심사 중 실제 잠금이 걸린다). 위 진단값으로만 판단하고,
+   잠금 동작 자체는 로컬에서 확인한다(`backend/tests/test_security.py::test_login_throttle_is_per_client_behind_proxy`).
 
 ## 5. 로컬 사전 점검(2026-10-30, VALIDATION §5-4)
 배포와 같은 설정(운영 모드·`PORT=10000`·root 소유 디스크·`COOKIE_SECURE=true`·HTTPS 프록시)으로 Docker 이미지를 실행해
