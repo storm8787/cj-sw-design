@@ -9,13 +9,26 @@ Python·Node·Docker·Git·uv를 설치하지 않아도 됩니다. 업무 화면
 > - 설치 마법사, 자동 업데이트, 자동 시작, Windows 서비스는 없습니다.
 
 ## 1. 받기
-- GitHub Actions의 **Windows 시험판** 실행 결과에서 artifact `CJ-SW-Design-windows-x64-trial-<커밋>`을 내려받습니다(GitHub 로그인 필요, 14일 보관).
-- artifact 안의 파일:
-  - `CJ-SW-Design-windows-x64-<커밋7자리>.zip`: 시험판 본체
-  - `.sha256`: ZIP의 SHA-256
-  - `build_info.json`: 소스 커밋, 빌드 환경, Python·PyInstaller 버전
-  - `smoke-report.json`: Windows에서 통과한 검사 목록
+받는 길이 두 가지입니다. **①이 있으면 ①을 쓰세요.**
+
+**① 프로젝트에 등록된 ZIP (권장)**
+- 저장소 최상단의 `CJ-SW-Design-windows-x64-<커밋7자리>.zip`과 같은 이름의 `.sha256`.
+- 로그인·만료 없이 바로 받을 수 있습니다. 심사 제출본에는 이 방식으로 등록합니다.
+
+**② GitHub Actions artifact (①이 없을 때)**
+- Actions → **Windows 시험판** 실행 결과 → artifact `CJ-SW-Design-windows-x64-trial-<커밋>`.
+- **GitHub 로그인이 필요하고 14일만 보관**됩니다(공개 Release 아님). 그래서 심사위원 전달 수단으로는 쓰지 않습니다.
+
+artifact(②) 안의 파일:
+- `CJ-SW-Design-windows-x64-<커밋7자리>.zip`: 시험판 본체
+- `.sha256`: ZIP의 SHA-256
+- `build_info.json`: 소스 커밋, 빌드 환경, Python·PyInstaller 버전
+- `smoke-report.json`: Windows에서 통과한 검사 목록
+
 - 해시 확인(선택, PowerShell): `Get-FileHash .\CJ-SW-Design-windows-x64-<커밋>.zip -Algorithm SHA256`의 값이 `.sha256` 파일의 값과 같은지 봅니다.
+- **커밋이 달라 보이는 경우:** ZIP은 소스 커밋에서 빌드하고, 그 ZIP을 저장소에 추가하는 커밋은 그보다 뒤에 생깁니다.
+  그래서 `build_info.json`의 `commit`과 저장소 최신 커밋이 다를 수 있습니다(정상). 실행파일이 어느 소스에서 나왔는지는 `build_info.json`을 기준으로 봅니다.
+- 저장소에 ZIP을 등록할 때는 최상단(또는 `release/`)에 둡니다. `dist/`·`backend/dist/`는 `.gitignore`가 무시해 커밋되지 않습니다.
 
 ## 2. 압축 풀기와 실행
 1. ZIP을 오른쪽 클릭 → **모두 압축 풀기**. 바탕화면·문서 등 쓰기 가능한 곳이면 됩니다(한글·공백 경로 가능). ZIP 안에서 바로 실행하지 마세요.

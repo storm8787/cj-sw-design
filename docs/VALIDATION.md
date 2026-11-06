@@ -341,3 +341,31 @@
 - Docker 이미지 재빌드(`--no-proxy-headers` 변경 포함)는 하지 않았다. 같은 옵션으로 로컬 uvicorn 기동은 확인했다.
 - Windows 시험판은 제출 커밋으로 다시 빌드해야 한다(이번 변경에 `backend/**`가 포함되므로 기존 artifact와 다르다).
 - 운영 서버에서 의도적인 로그인 잠금 시험은 하지 않았다(심사 중 실제 잠금을 피하기 위해).
+
+## 14. API 응답 charset·Windows ZIP 안내(D-029, 2026-11-06)
+실행 환경: 이 클라우드 세션(Linux), 샘플 모드, 가상 자료만. 기준 커밋 `1d28146`.
+
+| 검사 | 결과 |
+|---|---|
+| 백엔드 pytest | **193 passed**(§13의 191 + charset 회귀 2건) |
+| └ `test_json_responses_declare_utf8_charset` | 미로그인 401·로그인 401·정상 200·예외 404·없는 API 404에 `charset=utf-8`, 본문 UTF-8 유지 |
+| └ `test_csrf_403_declares_utf8_charset` | CSRF 403에도 `charset=utf-8` |
+
+수정 전후 `Content-Type` 실측(운영 모드 로컬 서버, `curl -i`):
+
+| 응답 | 수정 전 | 수정 후 |
+|---|---|---|
+| 401 미로그인 `/api/system` | `application/json` | `application/json; charset=utf-8` |
+| 401 틀린 비밀번호 | `application/json` | `application/json; charset=utf-8` |
+| 403 CSRF | `application/json` | `application/json; charset=utf-8` |
+| 200 `/api/system` | `application/json` | `application/json; charset=utf-8` |
+| 404 예외 핸들러 | `application/json` | `application/json; charset=utf-8` |
+| 404 없는 API | `application/json` | `application/json; charset=utf-8` |
+
+본문은 수정 전후 모두 올바른 UTF-8(`{"detail":"로그인이 필요합니다."}`)이다. 깨짐은 브라우저의 인코딩 추측 때문이며,
+`'로그인이 필요합니다.'.encode('utf-8').decode('cp949')`가 사용자가 본 `濡쒓렇…`와 같은 형태임을 계산으로 확인했다.
+
+미검증:
+- **실제 Render 배포본의 브라우저 표시** — 이 세션은 `sw-design-helper.onrender.com`에 접속할 수 없다(프록시 차단). 배포 후 사용자가 확인한다.
+- Windows 시험판 ZIP을 저장소에 등록한 상태는 만들지 않았다(파일은 사용자가 넣는다). `.gitignore` 동작만 확인했다:
+  최상단·`release/`의 `.zip`은 커밋 가능, `dist/`·`backend/dist/`는 무시됨.
