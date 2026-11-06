@@ -72,3 +72,32 @@ def test_detailed_counts_match_when_complexity_missing(client, tmp_path):
     rows = [r for r in wb["검산"].iter_rows(min_row=5, values_only=True) if r[0]]
     bad = [r for r in rows if r[5] != "일치"]
     assert rows and not bad, bad
+
+
+def test_requirement_origin_column_not_mislabeled_as_user(client):
+    """요구사항 시트 '원문 출처': 문서 근거 없는 AI·샘플 제안을 '사용자 입력'으로 적지 않는다(검수 보고서 [권장-4])."""
+    c = client
+    pid = c.post("/api/projects", json={"name": "출처 구분"}).json()["project"]["id"]
+    # 사용자가 직접 쓴 요구사항
+    c.post(f"/api/projects/{pid}/items/requirements", json={"data": {"title": "교육 신청", "kind": "functional"}})
+    # 샘플 규칙이 제안한 요구사항(문서 근거 없음)
+    c.post(f"/api/projects/{pid}/items/requirements", json={"data": {"title": "접근 권한 통제", "kind": "nonfunctional", "origin": "sample"}})
+    # 참고문서에서 추출한 요구사항(문서 근거 있음)
+    up = c.post(f"/api/projects/{pid}/documents", files={"file": ("타기관_과업.txt", "SFR-001 예약 조회 기능을 제공하여야 한다".encode(), "text/plain")}, data={"kind": "reference"}).json()
+    did = up["document"]["id"]
+    c.post(f"/api/projects/{pid}/documents/{did}/analyze", json={})
+    refs = c.get(f"/api/projects/{pid}").json()["project"]["reference_items"]
+    c.post(f"/api/projects/{pid}/reference-items/{refs[0]['id']}/decide", json={"decision": "keep", "reason": "필요"})
+
+    ws = _wb(c, pid)["요구사항"]
+    cols = [x.value for x in next(r for r in ws.iter_rows() if r[0].value == "요구사항ID")]
+    i_src, i_by, i_title = cols.index("원문 출처"), cols.index("제안 주체"), cols.index("요구사항명")
+    rows = {r[i_title].value: (r[i_src].value, r[i_by].value) for r in ws.iter_rows() if str(r[0].value or "").startswith("REQ-")}
+
+    assert rows["교육 신청"] == ("사용자 입력", "사용자")
+    src, by = rows["접근 권한 통제"]
+    assert src == "문서 출처 없음" and by == "샘플 규칙 제안(AI 아님)"  # 핵심: '사용자 입력'이 아니다
+    doc_row = next(v for k, v in rows.items() if "예약" in k)
+    assert "타기관_과업.txt" in doc_row[0] and doc_row[1] == "참고문서 추출"
+    # 사용자가 쓴 적 없는 항목이 '사용자 입력'으로 표기되지 않는다
+    assert [t for t, (s, b) in rows.items() if s == "사용자 입력" and b != "사용자"] == []

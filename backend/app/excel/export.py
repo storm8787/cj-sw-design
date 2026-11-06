@@ -808,13 +808,16 @@ def _factor_ref(ws, std: dict[str, Any]):
 def _requirements(ws, p: Project, fp_sum):
     cov = {x["requirement_id"]: x for x in fp_sum["coverage"]["rows"]}
     srcs = {s.id: s for s in p.sources}
-    cols = ["요구사항ID", "구분", "분류", "요구사항명", "사용자 요구 원문", "설명", "우선\n순위", "검수 기준", "출처", "제안 주체", "상태", "FP 연결", "재검토 필요"]
-    r = title(ws, "요구사항 목록", "출처 구분: 사용자 / AI 제안 / 샘플 규칙 제안 / 참고문서 추출 · 원문은 그대로 보존", len(cols))
+    cols = ["요구사항ID", "구분", "분류", "요구사항명", "사용자 요구 원문", "설명", "우선\n순위", "검수 기준", "원문 출처", "제안 주체", "상태", "FP 연결", "재검토 필요"]
+    r = title(ws, "요구사항 목록", "'원문 출처' = 참고문서의 파일·위치, 사용자가 직접 쓴 항목은 '사용자 입력' · "
+                                   "'제안 주체' = 사용자 / AI 제안 / 샘플 규칙 제안 / 참고문서 추출 · 원문은 그대로 보존", len(cols))
     header(ws, r, cols, [11, 7, 10, 22, 30, 32, 6, 28, 20, 12, 8, 16, 16])
     h = r
     for q in p.requirements:
         r += 1
-        src = "; ".join(f"{srcs[s].file_name} {srcs[s].location}" if s in srcs else s for s in q.source_ids) or "사용자 입력"
+        # 문서 근거가 있으면 파일·위치. 없으면 제안 주체로 갈라 쓴다(사용자가 쓴 적 없는 AI·샘플 제안을 '사용자 입력'으로 적지 않는다).
+        src = "; ".join(f"{srcs[s].file_name} {srcs[s].location}" if s in srcs else s for s in q.source_ids) \
+            or ("사용자 입력" if q.origin == "user" else "문서 출처 없음")
         fn_acc = [f"{f.id} {f.acceptance}" for f in p.functions if q.id in f.requirement_ids and f.acceptance and f.status != "excluded"]
         acc = q.acceptance or (("요구사항 기준 미정 — 기능 검수 기준: " + "; ".join(fn_acc)) if fn_acc else "검수 기준 미정")
         vals = [q.id, L.KIND[q.kind], q.category, q.title, q.original_text, q.description, L.PRIORITY[q.priority], acc, src, L.ORIGIN[q.origin], L.STATUS[q.status], cov.get(q.id, {}).get("state", ""), q.review_reason if q.needs_review else ""]
