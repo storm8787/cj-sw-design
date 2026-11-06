@@ -251,3 +251,22 @@
   - 하드 차단을 지연(backoff)으로 바꾸기(기존 실패 제한을 유지하라는 지시 범위를 넘음).
 - 남은 확인: **실제 Render에서의 프록시 단 수**. `render.yaml`의 `1`은 최소값이며, 2단이면 키가 프록시 주소로 묶여
   수정 전과 같은 공용 잠금이 된다(위조는 여전히 불가). 배포 후 `docs/DEPLOY.md` §4-1로 확인해 값을 맞춘다.
+
+### D-029 (2026-11-06) API 응답에 `charset=utf-8` 명시 — 브라우저에서 한글이 깨지던 문제
+- 발견: 사용자가 배포 점검 절차(`docs/DEPLOY.md` §4-1)대로 `https://<주소>/api/system`을 브라우저에 입력했더니
+  `{"detail":"濡쒓렇�몄씠 �꾩슂�⑸땲��"}`로 보였다. UTF-8 한글 바이트를 CP949로 읽은 결과다.
+- 원인: 모든 JSON 응답이 `Content-Type: application/json`이고 **charset 파라미터가 없었다**.
+  JSON은 규격상 UTF-8이고 화면 코드(`fetch` → `response.json()`)는 항상 UTF-8로 읽어 앱 동작에는 문제가 없다.
+  그러나 **사람이 API 주소를 브라우저에 직접 열면** 브라우저가 문서로 렌더링하며 인코딩을 추측하고,
+  한국어 Windows에서는 CP949로 읽어 한글 메시지가 깨진다. 점검 절차가 바로 그 경로를 쓰게 하므로 드러났다.
+- 선택:
+  - `main.JsonUTF8`(media_type `application/json; charset=utf-8`)을 만들고 FastAPI `default_response_class`로 지정했다.
+  - 직접 만드는 응답도 모두 교체: 미들웨어 401·403, 사용자 예외 핸들러 8종, 로그인 401, 없는 API 404.
+  - 프레임워크 내장 핸들러(`StarletteHTTPException` 404·405, `RequestValidationError` 422)도 같은 클래스로 덮었다.
+    본문 형식은 기본값과 같게 유지했다(`{"detail": …}`, 검증 오류는 `jsonable_encoder(e.errors())`).
+- 함께 고친 것: `/api/system`에서 `{"detail":"로그인이 필요합니다."}`가 나오는 것은 **정상 동작**(미로그인)이라는 설명과,
+  쿠키가 `SameSite=strict`이라 주소창에 직접 입력해야 한다는 점을 `docs/DEPLOY.md` §4-1에 적었다.
+- 채택 안 함:
+  - 점검용으로 `/api/system`을 인증 없이 열기(진단값에 접속 주소가 들어가고, 미로그인 API 차단 원칙을 깨뜨림).
+  - 응답 본문을 ASCII로 escape(한글 가독성을 버림).
+- 남은 확인: 실제 Render 배포본에서 브라우저로 한글이 정상 표시되는지(이 세션은 배포 주소에 접속할 수 없음).
