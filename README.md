@@ -21,7 +21,10 @@ AI는 질문·초안·분류 후보를 제안하고, FP 가중치·금액 계산
 ## Windows 시험판 — 내 PC에서 설치 없이 실행(시험판, 미서명)
 직원 PC(Windows 11 x64)에서 Python·Node·Docker 없이 실행하는 **시험판**입니다. 웹판과 같은 화면을 기본 브라우저로 엽니다.
 
-1. GitHub Actions의 'Windows 시험판' artifact에서 `CJ-SW-Design-windows-x64-<커밋>.zip`을 받습니다(공개 Release 아님, 14일 보관).
+1. **프로젝트 최상단의 `CJ-SW-Design-windows-x64-<커밋>.zip`** 을 받습니다(같은 폴더의 `.sha256`으로 무결성 확인 가능).
+   - 저장소에 ZIP이 없으면 GitHub Actions의 'Windows 시험판' 실행 결과 artifact에서 받습니다(GitHub 로그인 필요, 14일 보관, 공개 Release 아님).
+   - ZIP은 **소스 커밋에서 빌드한 결과**이고, 그 ZIP을 저장소에 추가한 커밋은 그보다 뒤입니다. 그래서 `build_info.json`의 커밋과
+     저장소 최신 커밋이 다를 수 있습니다 — 정상이며, 어느 소스에서 만든 실행파일인지는 `build_info.json`으로 확인합니다.
 2. **모두 압축 풀기** → `CJ-SW-Design\CJ-SW-Design.exe` 더블클릭.
 3. 처음 실행이면 로그인 비밀번호(10자 이상)를 정합니다. 서버가 준비되면 브라우저가 `http://127.0.0.1:<포트>/`로 열립니다.
 4. 끝낼 때는 런처 창의 **[종료]**를 누릅니다. 브라우저 탭만 닫으면 계속 실행됩니다.
