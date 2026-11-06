@@ -21,14 +21,15 @@ services:
         value: /data
       - key: COOKIE_SECURE
         value: "true"
-      # 로그인 실패 제한(5회/5분)을 '접속자별'로 세기 위해 신뢰할 프록시 단 수.
-      # Render는 리버스 프록시 뒤이므로 여기서 1로 '선언'한다(앱 기본값은 0 = 헤더 불신).
+      # 로그인 실패 제한(5회/5분)을 '접속자별'로 세기 위해 신뢰할 프록시 단 수(앱 기본값은 0 = 헤더 불신).
       # X-Forwarded-For를 오른쪽에서 센다(왼쪽은 클라이언트가 위조할 수 있어 신뢰하지 않음).
-      # 배포 후 로그인해서 /api/system 의 client 항목을 확인한다(docs/DEPLOY.md §4-1):
-      #   login_throttle_key가 본인 공인 IP면 정상. forwarded_count가 2 이상이면 그 값으로 바꾼다.
-      #   0으로 두면 모든 접속자가 프록시 주소 하나로 묶여 한 사람의 오타 5회가 다른 사람까지 5분간 막는다.
+      # 2 = 2026-11-06 실제 배포에서 측정한 값. /api/system의 client가 forwarded_count 2,
+      #     오른쪽 1번째는 Cloudflare 대역(172.64.0.0/13) 주소였다 → 체인은 [실제 접속자, Cloudflare 엣지].
+      #     1로 두면 Cloudflare 엣지 주소로 묶여 같은 엣지를 쓰는 접속자들이 함께 잠긴다.
+      # 인프라가 바뀌면 값도 바뀔 수 있다. 배포 후 한 번 확인한다(docs/DEPLOY.md §4-1):
+      #   login_throttle_key가 본인 공인 IP이고 shared_key_warning이 비어 있으면 정상.
       - key: TRUSTED_PROXY_HOPS
-        value: "1"
+        value: "2"
       - key: SECRET_KEY
         generateValue: true # Render가 무작위 값 생성
       - key: ADMIN_PASSWORD # 10자 이상. 해시를 쓰려면 이 항목 대신 ADMIN_PASSWORD_HASH

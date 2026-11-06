@@ -386,3 +386,23 @@
 - 로그인 쿠키는 `HttpOnly; Secure; SameSite=strict`다. `SameSite=strict`는 **다른 사이트에서 넘어온 최초 이동에 쿠키를 붙이지 않으므로**,
   채팅·메일의 링크를 클릭해 API 주소로 들어가면 로그인돼 있어도 401이 난다. 주소창에 직접 입력하거나 그 페이지에서 새로고침하면 붙는다.
   보안 속성을 진단 편의 때문에 낮추지 않았고(`Lax`로 변경 안 함), 구분 절차를 `docs/DEPLOY.md` §4-1에 적었다.
+
+### 14-2. Render 프록시 단 수 실측(2026-11-06, 운영 배포)
+사용자가 운영 앱에 로그인한 뒤 `/api/system`을 열어 전달한 값이다. **이 세션은 배포 주소에 접속할 수 없어 사용자가 측정했다.**
+
+```
+peer                : 10.26.82.133     (Render 내부 라우터)
+forwarded_count     : 2
+trusted_proxy_hops  : 1                (당시 render.yaml 값)
+login_throttle_key  : 172.69.166.86    (Cloudflare 대역 172.64.0.0/13)
+shared_key_warning  : ""               ← 경고가 비어 있던 것이 로직 구멍
+```
+
+- 전달 체인은 `[실제 접속자, Cloudflare 엣지]` 2단 → `hops=1`은 Cloudflare 엣지 주소를 집는다. `hops=2`가 맞다.
+- 조치: `render.yaml`을 `2`로, 경고 조건에 '체인이 설정보다 길다'를 추가(`routes._key_warning`).
+- 백엔드 pytest **194 passed**(§14의 193 + 실측 재현 1건). 실측 체인을 그대로 넣은 회귀 테스트:
+  `test_client_info_warns_when_key_is_an_intermediate_proxy` — hops=1에서 CDN 주소+경고, hops=2에서 접속자 주소+경고 없음,
+  hops=0에서 peer+공용 경고, 위조로 체인이 길어져도 hops=2는 접속자 주소를 집음.
+- 함께 확인된 것(운영 배포): AI 연결이 권장 구성 그대로 적용돼 있다 —
+  `openai · gpt-6-luna`, 작업별 `fp_candidates: gpt-6.1-sol`, `app_env production`, `auth_disabled false`.
+- 미검증: `hops=2` 적용 후의 실제 `login_throttle_key` 값(사용자가 Render 환경변수를 바꾼 뒤 §4-1로 재확인해야 한다).

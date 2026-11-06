@@ -108,7 +108,8 @@
 6. 이 작업 환경 특성: Docker Hub 429·ghcr 차단·TLS 검사 프록시 → 로컬 Docker 빌드는 mirror.gcr.io 기반 이미지 + `--secret id=extra_ca` 사용.
 7. 로그인 실패 제한(5회/5분)은 **접속자별**로 센다(D-028, 2026-11-06). `X-Forwarded-For`를 오른쪽에서 `TRUSTED_PROXY_HOPS`번째 값으로 식별하며,
    기본값 0은 헤더를 믿지 않고(직접 노출에서 안전) `render.yaml`이 `1`로 선언한다. 왼쪽 위조로는 제한을 피할 수 없다.
-   **Render의 실제 프록시 단 수는 미확인** — 2단이면 다시 공용 잠금이 되므로 배포 후 `docs/DEPLOY.md` §4-1(`/api/system`의 `client`)로 확인해 값을 맞춰야 한다.
+   **Render 실측(2026-11-06): 전달 체인 2단**([접속자, Cloudflare 엣지]) → `render.yaml`은 `2`. 1로 두면 Cloudflare 엣지 주소로 묶인다.
+   인프라가 바뀌면 값도 바뀌므로 배포 후 `docs/DEPLOY.md` §4-1(`/api/system`의 `client`)로 한 번 확인한다.
 8. 샘플 시연판은 읽기 전용 정적 화면(새 계산·생성 없음). 샘플 데이터는 커밋하지 않고 빌드 때 `backend/tools/demo_data.py`로 생성하므로, 화면·모델·계산을 바꾼 뒤 `npm run demo:data`가 실패하면 생성기(`build_a`·`build_b`)를 함께 고쳐야 Pages 배포가 진행됨.
 
 ## 5. 다음 작업(우선순위)

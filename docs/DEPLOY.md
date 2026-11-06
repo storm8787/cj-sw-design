@@ -35,7 +35,7 @@ Render는 GitHub 저장소 연결과 화면 입력만으로 배포·HTTPS·비�
 | 로그인 비밀번호 | `ADMIN_PASSWORD` | 10자 이상 | **사용자** (Render 화면, 비밀값) |
 | (선택) 비밀번호 해시 | `ADMIN_PASSWORD_HASH` | `scrypt$…` | 사용자 — 쓰면 `ADMIN_PASSWORD`는 지움. 생성: `cd backend && uv run python -m app.auth hash` |
 | HTTPS 쿠키 | `COOKIE_SECURE` | `true` | render.yaml |
-| 로그인 실패 제한 단위 | `TRUSTED_PROXY_HOPS` | `1`(기본). 배포 후 아래 §4-1로 확인해 2 이상이면 그 값 | render.yaml |
+| 로그인 실패 제한 단위 | `TRUSTED_PROXY_HOPS` | **`2`** (2026-11-06 실제 배포 측정: 전달 체인 2단 = [접속자, Cloudflare 엣지]). 인프라가 바뀌면 §4-1로 다시 확인 | render.yaml |
 | 데이터 영속 저장 | `DATA_DIR` + 디스크 | `/data`, 디스크 1GB를 `/data`에 연결 | render.yaml |
 | AI(기본 OpenAI) | `OPENAI_API_KEY` | 사용자 키 | **사용자** (Render 화면, 비밀값). 비우면 샘플 모드 |
 | AI 모델 | `OPENAI_MODEL` | `gpt-6-luna`(2026-10-30 비교시험 통과, `docs/AI_COST.md`) | render.yaml |
@@ -97,8 +97,10 @@ Health Check Path `/api/health`, Advanced → Disk 추가(Mount Path `/data`, 1G
      `Content-Type: application/json; charset=utf-8`을 명시한다. Events에서 배포 커밋을 확인한다.
 2. 판정
    - `login_throttle_key`가 **본인 공인 IP**(검색창에 "my ip"로 확인한 값)와 같고 `shared_key_warning`이 비어 있으면 **정상**. 더 할 일 없음.
-   - `shared_key_warning`에 문구가 있거나 `login_throttle_key`가 `peer`와 같으면 → `forwarded_count` 값을 그대로
+   - `shared_key_warning`에 문구가 있으면 → 문구가 알려주는 값(= `forwarded_count`)을 그대로
      Render → 서비스 → **Environment** → `TRUSTED_PROXY_HOPS`에 넣고 저장(자동 재시작) → 1번을 다시 확인.
+     경고는 두 가지다: ① 식별값이 `peer`(프록시 주소)와 같음 → 모든 접속자가 한 키로 묶임,
+     ② 전달 체인이 설정보다 길다 → 중간 프록시·CDN 주소를 쓰고 있을 수 있음(2026-11-06에 실제로 이 경우였다).
    - `forwarded_count`가 `0`이면 프록시가 헤더를 주지 않는 것이므로 Render 지원에 문의한다. 이 경우에는 제한이 공용으로 걸리므로
      심사 안내에 "비밀번호 5회 실패 시 5분 뒤 재시도"를 적어 둔다.
 3. **운영 서버에서 일부러 5회 실패를 만들어 확인하지 않는다**(심사 중 실제 잠금이 걸린다). 위 진단값으로만 판단하고,
