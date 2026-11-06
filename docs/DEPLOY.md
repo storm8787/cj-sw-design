@@ -77,11 +77,17 @@ Health Check Path `/api/health`, Advanced → Disk 추가(Mount Path `/data`, 1G
 앱은 `X-Forwarded-For`를 **오른쪽에서** `TRUSTED_PROXY_HOPS`번째 값으로 접속자를 식별한다.
 왼쪽 값은 클라이언트가 위조할 수 있어 신뢰하지 않는다(`backend/app/auth.py::client_ip`).
 
-1. 배포된 앱에 로그인한 뒤, 같은 브라우저에서 `https://<서비스 주소>/api/system` 을 열고 `client` 항목을 본다.
+1. **먼저 앱에 로그인한다**(`https://<서비스 주소>/` → 관리자 비밀번호). 그 **다음에 같은 브라우저 탭·창**에서
+   `https://<서비스 주소>/api/system` 을 열고 `client` 항목을 본다.
    ```json
    "client": { "peer": "10.x.x.x", "forwarded_count": 1, "trusted_proxy_hops": 1,
                "login_throttle_key": "<내 공인 IP>", "shared_key_warning": "" }
    ```
+   - `{"detail":"로그인이 필요합니다."}`가 나오면 **로그인하지 않은 것이다**(정상 동작). 먼저 로그인한다.
+     로그인 쿠키는 `SameSite=strict`이므로 주소창에 직접 입력해 열어야 하고, 다른 사이트의 링크로 들어가면 쿠키가 안 붙는다.
+     시크릿 창·다른 브라우저는 로그인 상태가 공유되지 않는다.
+   - 한글이 `濡쒓렇…`처럼 깨져 보이면 **구버전이 배포된 것이다**. 2026-11-06부터 API 응답에
+     `Content-Type: application/json; charset=utf-8`을 명시한다. Events에서 배포 커밋을 확인한다.
 2. 판정
    - `login_throttle_key`가 **본인 공인 IP**(검색창에 "my ip"로 확인한 값)와 같고 `shared_key_warning`이 비어 있으면 **정상**. 더 할 일 없음.
    - `shared_key_warning`에 문구가 있거나 `login_throttle_key`가 `peer`와 같으면 → `forwarded_count` 값을 그대로

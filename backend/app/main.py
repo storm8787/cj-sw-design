@@ -5,7 +5,10 @@ import logging
 from pathlib import Path
 
 from fastapi import FastAPI, Request
+from fastapi.encoders import jsonable_encoder
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, JSONResponse
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from .ai import tasks as ai_tasks
 from .ai.provider import AIProvider, ProviderRegistry
@@ -70,10 +73,24 @@ PUBLIC = {"/api/health", "/api/auth/login", "/api/auth/me"}
 MUTATING = {"POST", "PUT", "PATCH", "DELETE"}
 
 
+class JsonUTF8(JSONResponse):
+    """`Content-Type`에 `charset=utf-8`을 명시한 JSON 응답.
+
+    JSON은 규격상 UTF-8이고 화면 코드(`fetch` → `response.json()`)는 항상 UTF-8로 읽는다.
+    그러나 charset이 없으면 **사람이 API 주소를 브라우저에 직접 입력했을 때** 브라우저가
+    문서로 렌더링하며 인코딩을 추측한다. 한국어 Windows에서는 CP949로 읽혀
+    '로그인이 필요합니다.'가 '濡쒓렇...'처럼 깨져 앱이 고장난 것처럼 보인다.
+    배포 점검 절차(`docs/DEPLOY.md` §4-1)가 `/api/system`을 브라우저로 열게 하므로 charset을 명시한다.
+    """
+
+    media_type = "application/json; charset=utf-8"
+
+
 def create_app(settings: Settings | None = None, provider: AIProvider | None = None, synchronous_jobs: bool = False) -> FastAPI:
     settings = settings or load_settings()
     ctx = AppCtx(settings, provider, synchronous_jobs)
-    app = FastAPI(title="정보화 설계 도우미", docs_url="/api/docs" if settings.is_dev else None, redoc_url=None, openapi_url="/api/openapi.json" if settings.is_dev else None)
+    app = FastAPI(title="정보화 설계 도우미", docs_url="/api/docs" if settings.is_dev else None, redoc_url=None, openapi_url="/api/openapi.json" if settings.is_dev else None,
+                  default_response_class=JsonUTF8)
     app.state.ctx = ctx
 
     @app.middleware("http")
@@ -81,9 +98,9 @@ def create_app(settings: Settings | None = None, provider: AIProvider | None = N
         path = request.url.path
         if path.startswith("/api/"):
             if request.method in MUTATING and request.headers.get(CSRF_HEADER) != CSRF_VALUE:
-                return JSONResponse({"detail": "요청 헤더가 없습니다(X-Requested-With)."}, status_code=403)
+                return JsonUTF8({"detail": "요청 헤더가 없습니다(X-Requested-With)."}, status_code=403)
             if path not in PUBLIC and not ctx.auth.check(request.cookies.get(COOKIE)):
-                return JSONResponse({"detail": "로그인이 필요합니다."}, status_code=401)
+                return JsonUTF8({"detail": "로그인이 필요합니다."}, status_code=401)
         resp = await call_next(request)
         resp.headers.setdefault("X-Content-Type-Options", "nosniff")
         resp.headers.setdefault("X-Frame-Options", "DENY")
@@ -93,7 +110,16 @@ def create_app(settings: Settings | None = None, provider: AIProvider | None = N
         return resp
 
     for exc, code in ((NotFound, 404), (InvalidData, 422), (StandardError, 422), (CostError, 422), (UploadRejected, 422), (FetchBlocked, 422), (Conflict, 409), (PermissionError, 429)):
-        app.add_exception_handler(exc, lambda r, e, code=code: JSONResponse({"detail": str(e)}, status_code=code))
+        app.add_exception_handler(exc, lambda r, e, code=code: JsonUTF8({"detail": str(e)}, status_code=code))
+
+    # 프레임워크 내장 핸들러(404·405·요청 검증 오류)도 charset을 명시해 한글이 깨지지 않게 한다. 본문 형식은 기본값과 같다.
+    @app.exception_handler(StarletteHTTPException)
+    def _http_exception(request: Request, e: StarletteHTTPException):
+        return JsonUTF8({"detail": e.detail}, status_code=e.status_code, headers=getattr(e, "headers", None))
+
+    @app.exception_handler(RequestValidationError)
+    def _validation_exception(request: Request, e: RequestValidationError):
+        return JsonUTF8({"detail": jsonable_encoder(e.errors())}, status_code=422)
 
     from .routes import router
 
@@ -106,7 +132,7 @@ def create_app(settings: Settings | None = None, provider: AIProvider | None = N
         @app.get("/{full_path:path}", include_in_schema=False)
         def spa(full_path: str):
             if full_path.startswith("api/"):
-                return JSONResponse({"detail": "없는 API"}, status_code=404)
+                return JsonUTF8({"detail": "없는 API"}, status_code=404)
             f = (dist / full_path).resolve()
             if full_path and dist.resolve() in f.parents and f.is_file():
                 return FileResponse(f)

@@ -233,3 +233,48 @@ def test_secrets_not_logged(app_factory, caplog):
     c.post(f"/api/projects/{pid}/documents", files={"file": ("a.txt", "주민등록번호 900101-1234567".encode(), "text/plain")}, data={"kind": "reference"})
     text = caplog.text
     assert "900101-1234567" not in text and "010-1234-5678" not in text and "test-password" not in text
+
+
+def test_json_responses_declare_utf8_charset(app_factory):
+    """한글 메시지가 브라우저에서 깨지지 않도록 모든 JSON 응답이 charset=utf-8을 명시한다.
+
+    charset이 없으면 사람이 API 주소를 브라우저에 직접 열었을 때 인코딩을 추측한다.
+    한국어 Windows에서는 CP949로 읽혀 '로그인이 필요합니다.'가 '濡쒓렇…'처럼 보인다
+    (배포 점검 절차 docs/DEPLOY.md §4-1가 /api/system을 브라우저로 열게 한다).
+    """
+    app = app_factory()
+    anon = client_for(app, login=False)
+    admin = client_for(app)
+
+    def ct(r):
+        return r.headers.get("content-type", "")
+
+    # 미로그인 401(미들웨어)
+    r = anon.get("/api/system")
+    assert r.status_code == 401 and "charset=utf-8" in ct(r), ct(r)
+    assert r.json()["detail"] == "로그인이 필요합니다."  # 본문은 UTF-8 그대로
+    # 틀린 비밀번호 401(라우트)
+    r = anon.post("/api/auth/login", json={"password": "wrong-password"})
+    assert r.status_code == 401 and "charset=utf-8" in ct(r), ct(r)
+    assert "비밀번호" in r.json()["detail"]
+    # 정상 200(기본 응답 클래스)
+    r = admin.get("/api/system")
+    assert r.status_code == 200 and "charset=utf-8" in ct(r), ct(r)
+    # 예외 핸들러 404
+    r = admin.get("/api/projects/NO-SUCH-ID")
+    assert r.status_code == 404 and "charset=utf-8" in ct(r), ct(r)
+    # 없는 API 404
+    r = admin.get("/api/definitely-not-an-endpoint")
+    assert r.status_code == 404 and "charset=utf-8" in ct(r), ct(r)
+    # 한글 메시지를 CP949로 읽으면 깨지는 것이 맞고, UTF-8로 읽으면 복원된다
+    body = admin.get("/api/projects/NO-SUCH-ID").content
+    assert body.decode("utf-8")  # UTF-8로 디코딩 가능
+
+
+def test_csrf_403_declares_utf8_charset(app_factory):
+    from fastapi.testclient import TestClient
+
+    raw = TestClient(app_factory())  # X-Requested-With 없음
+    r = raw.post("/api/projects", json={"name": "x"})
+    assert r.status_code == 403 and "charset=utf-8" in r.headers.get("content-type", "")
+    assert "X-Requested-With" in r.json()["detail"]

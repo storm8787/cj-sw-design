@@ -16,7 +16,7 @@ from .docs_extract import extract as dx
 from .excel import export as xl
 from .fp import engine
 from .fp import estimates as est
-from .main import AppCtx
+from .main import AppCtx, JsonUTF8
 from .models import COLLECTIONS, CostSettings, DocumentMeta, Extraction, Overview, ReferenceItem, TaskDraft, TechInputs
 from .review.review import run_review
 from .services import backup, examples, overview_suggest, proposals, samples, status, taskdraft
@@ -68,7 +68,7 @@ def login(body: LoginIn, request: Request, response: Response):
     who = client_ip(peer, request.headers.get("x-forwarded-for"), c.settings.trusted_proxy_hops)
     token = c.auth.login(who, body.password)
     if not token:
-        return JSONResponse({"detail": "비밀번호가 맞지 않습니다."}, status_code=401)
+        return JsonUTF8({"detail": "비밀번호가 맞지 않습니다."}, status_code=401)
     response.set_cookie(COOKIE, token, httponly=True, samesite="strict", secure=c.settings.cookie_secure, max_age=c.settings.session_max_age, path="/")
     return {"ok": True}
 
