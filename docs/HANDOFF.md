@@ -86,6 +86,9 @@
 | 엑셀 산출물 서식 | 완료 | 산출내역서형 서식·인쇄(2026-10-30). Microsoft Excel 화면·인쇄 미리보기는 미확인(LibreOffice로 확인) |
 
 ## 3. 테스트 결과 (상세: `docs/VALIDATION.md`)
+- 공공GitLab 보안 스캔 대응(2026-11-06, VALIDATION §15, D-030): Semgrep(업로드 XML → `defusedxml`),
+  OSV-Scanner(vite 6.4.5 / esbuild 0.25.12, npm audit 0건), Trivy `DS-0002`는 `.trivyignore`에 근거 기재.
+  pytest **195 passed**, E2E 5종 통과. **훅 재통과는 사용자 push로만 확인 가능.**
 - Render 로그인 제한 **운영 검증 완료**(2026-11-06, VALIDATION §14-3, D-028 후속): `TRUSTED_PROXY_HOPS=2` 적용 후
   `login_throttle_key`가 접속자 본인 공인 IP로 확인. 운영 AI 구성도 권장값(`gpt-6-luna` + FP 후보 `gpt-6.1-sol`) 적용 확인.
 - API 응답 charset(2026-11-06, VALIDATION §14, D-029): 모든 JSON 응답에 `charset=utf-8` 명시. 백엔드 pytest **194 passed**.

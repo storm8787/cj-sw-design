@@ -15,6 +15,7 @@
 | python-multipart | 0.0.32 | Apache-2.0 | 파일 업로드 |
 | itsdangerous | 2.2.0 | BSD-3-Clause | 로그인 쿠키 서명 |
 | openpyxl | 3.1.5 | MIT | 엑셀 생성·읽기 |
+| defusedxml | 0.7.1 | PSF-2.0 | 업로드 HWPX의 XML 안전 파싱(XXE·엔티티 확장 방어) |
 | pypdf | 6.21.4 | BSD-3-Clause | PDF 텍스트 추출 |
 | python-docx | 1.2.0 | MIT | DOCX 추출 |
 | olefile | 0.47 | BSD-2-Clause 계열(BSD) | HWP(실험적) 읽기 |
@@ -29,7 +30,7 @@
 |---|---|---|---|
 | react, react-dom | 18.3.1 | MIT | 빌드 결과에 포함 |
 | typescript | 5.6.3 | Apache-2.0 | 빌드 도구(결과물에 미포함) |
-| vite | 5.4.11 | MIT | 빌드 도구 |
+| vite | 6.4.5 | MIT | 빌드 도구 |
 | @vitejs/plugin-react | 4.3.4 | MIT | 빌드 도구 |
 | @types/react, @types/react-dom | — | MIT | 타입 정의(빌드 도구) |
 | playwright(`e2e/`) | 1.63.0 | Apache-2.0 | E2E 테스트 전용, 앱에 미포함 |

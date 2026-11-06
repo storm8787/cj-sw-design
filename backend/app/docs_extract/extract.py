@@ -18,7 +18,10 @@ import zipfile
 import zlib
 from dataclasses import dataclass, field
 from pathlib import PurePath
-from xml.etree import ElementTree as ET
+
+# 업로드 문서(HWPX)의 XML은 외부에서 온 신뢰할 수 없는 입력이다. 표준 xml.etree는 DTD·엔티티 확장
+# 공격(XML 폭탄 등)에 취약하므로 defusedxml을 쓴다. DTD가 있으면 예외가 나고 extract()가 '읽지 못함'으로 기록한다.
+from defusedxml import ElementTree as ET
 
 ALLOWED = {"pdf", "hwpx", "hwp", "docx", "xlsx", "xlsm", "txt", "md"}
 CHUNK_CHARS = 4000
