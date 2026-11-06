@@ -40,13 +40,19 @@ Windows 11에서 Python·Node·Docker 없이 실행하는 시험판입니다. ZI
 ### 2-3. Docker 없이 소스로 실행(대안)
 필요: Python 3.12+와 uv, Node.js 22. 앱은 `.env` 파일을 읽지 않으므로 환경변수를 터미널에서 지정합니다.
 
-macOS·Linux(bash) — 2026-10-30 Linux에서 같은 방식으로 실행 확인:
+> **`AI_PROVIDER=sample`을 함께 지정하세요.** 터미널(셸 프로필)에 `OPENAI_API_KEY`만 있고 `OPENAI_MODEL`이 없으면
+> 서버가 그 키를 기본 AI 연결로 보고 `ConfigError: 기본 AI 연결 'openai' 설정이 부족합니다: OPENAI_MODEL(모델명) 미설정`으로
+> **기동을 거부**합니다. `AI_PROVIDER=sample`은 상속된 키를 무시하고 샘플 모드로 띄웁니다.
+> AI를 쓰려면 `AI_PROVIDER=sample`을 빼고 `OPENAI_API_KEY`와 `OPENAI_MODEL`을 함께 지정하세요(3절).
+> Docker는 `--env-file`로만 환경변수를 받으므로 이 문제가 없습니다.
+
+macOS·Linux(bash) — 2026-10-30 Linux에서 같은 방식으로 실행 확인(2026-11-06 `AI_PROVIDER=sample` 추가 후 재확인):
 ```bash
 cd frontend && npm ci && npm run build && cd ../backend && uv sync
 ```
 
 ```bash
-SECRET_KEY=<32자 이상> ADMIN_PASSWORD=<10자 이상> uv run uvicorn app.main:create_app --factory --port 8000
+AI_PROVIDER=sample SECRET_KEY=<32자 이상> ADMIN_PASSWORD=<10자 이상> uv run uvicorn app.main:create_app --factory --port 8000
 ```
 
 Windows PowerShell — 이 작업 환경에서는 실행해 보지 못했습니다(문법만 대조):
@@ -55,7 +61,7 @@ cd frontend; npm ci; npm run build; cd ..\backend; uv sync
 ```
 
 ```powershell
-$env:SECRET_KEY = "<32자 이상>"; $env:ADMIN_PASSWORD = "<10자 이상>"; uv run uvicorn app.main:create_app --factory --port 8000
+$env:AI_PROVIDER = "sample"; $env:SECRET_KEY = "<32자 이상>"; $env:ADMIN_PASSWORD = "<10자 이상>"; uv run uvicorn app.main:create_app --factory --port 8000
 ```
 - `backend` 폴더에서 실행합니다. 화면은 `frontend/dist`를 자동으로 찾아 함께 제공합니다. 데이터는 `backend/data`에 저장됩니다. 종료는 Ctrl+C.
 
@@ -80,7 +86,7 @@ $env:SECRET_KEY = "<32자 이상>"; $env:ADMIN_PASSWORD = "<10자 이상>"; uv r
 |---|---|---|
 | `examples/A-idea/idea_example.md` | 구상 입력 예시(사업명·구상·목표예산·기능 일곱 줄) | '예제 값으로 시작'으로 만들기 창 채움 → '3 요구사항' 기능 입력란에 일곱 줄 붙여 넣기 |
 | `examples/B-reference/reference_task_order.txt` | 가상 타 기관 과업지시서(예산·기간·특정 제품·개인정보·문서 속 지시문 포함) | '참고문서로 시작하기' → '2 자료·질문'에 종류 '참고문서(타 기관)'로 올리기 → '항목 추출' |
-| `examples/C-review/vendor_task.txt`, `vendor_design.txt`, `vendor_fp.csv`(화면에서는 `vendor_fp.xlsx`), `vendor_cost.txt` | 오류를 일부러 넣은 가상 업체 제출 문서 | '기존 문서 검토하기' → '2 자료·질문'에 각각 업체 과업지시서·설계서·FP 산정표·금액 산출서로 올리기 → '6 검토·추천' → '검토 실행' |
+| `examples/C-review/vendor_task.txt`, `vendor_design.txt`, `vendor_fp.csv` → **화면에서 `vendor_fp.xlsx`로 받아 올릴 것**(`.csv`는 업로드 형식이 아님), `vendor_cost.txt` | 오류를 일부러 넣은 가상 업체 제출 문서 | 첫 화면 '예제로 체험하기 → 03 검토'에서 네 파일 받기 → '기존 문서 검토하기' → '2 자료·질문'에 각각 업체 과업지시서·설계서·FP 산정표·금액 산출서로 올리기 → '6 검토·추천' → '검토 실행' |
 | `examples/C-review/expected_findings.md` | 예제 C의 넣어 둔 오류·기대 결과·탐지 한계 | 검토 결과와 비교 |
 
 원본 파일은 읽기 전용으로 둡니다. 앱에 올린 뒤의 결과는 앱 프로젝트에 따로 저장됩니다.

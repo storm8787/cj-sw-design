@@ -75,7 +75,8 @@
 # 백엔드 (uv 필요)
 cd backend && uv sync                       # 의존성 설치
 cd backend && uv run pytest -q              # 백엔드 테스트
-cd backend && APP_ENV=development AUTH_DISABLED=true uv run uvicorn app.main:create_app --factory --reload --port 8000
+cd backend && AI_PROVIDER=sample APP_ENV=development AUTH_DISABLED=true uv run uvicorn app.main:create_app --factory --reload --port 8000
+# AI_PROVIDER=sample은 셸에 상속된 OPENAI_API_KEY를 무시한다(키만 있고 OPENAI_MODEL이 없으면 기동 거부)
 # 프런트엔드
 cd frontend && npm ci && npm run typecheck && npm run build
 cd frontend && npm run dev                  # http://localhost:5173 (API는 8000으로 프록시)
