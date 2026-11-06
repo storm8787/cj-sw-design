@@ -1,0 +1,17 @@
+# Trivy 스캔 예외 — 각 항목에 근거를 남긴다. 근거 없는 예외는 추가하지 않는다.
+
+# DS-0002 / DS002 / AVD-DS-0002 : "Image user should not be 'root'"
+#
+# 이 이미지는 Dockerfile에 USER를 두지 않고, ENTRYPOINT(docker-entrypoint.sh)가 root로 시작해
+#   1) 마운트된 /data 볼륨의 소유자를 app(uid 10001)으로 맞추고
+#   2) setpriv --reuid=app --regid=app 로 권한을 낮춘 뒤 서버를 실행한다.
+# 따라서 실제 서버 프로세스는 비루트로 동작한다(docs/VALIDATION.md §5-4에서 uid 10001·생성 파일 소유자 app 확인).
+# 엔트리포인트는 비루트로 시작된 경우도 처리한다(id -u 검사 후 그대로 exec).
+#
+# USER app 을 고정하지 않는 이유: 배포 서비스(Render 등)가 영속 디스크를 root 소유로 마운트하므로
+# 컨테이너가 처음부터 app으로 뜨면 /data 에 DB를 만들 수 없어 기동이 실패한다
+#   sqlite3.OperationalError: unable to open database file
+# 이 실패는 docs/VALIDATION.md §5-4 에 실측 기록이 있고, 그 때문에 현재 구조를 선택했다(docs/DECISIONS.md 참고).
+DS-0002
+DS002
+AVD-DS-0002

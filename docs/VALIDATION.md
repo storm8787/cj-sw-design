@@ -436,3 +436,32 @@ shared_key_warning  : ""
   일부러 유발하지 않는다(`docs/DEPLOY.md` §4-1 3항). 동작은 로컬 프록시 재현 환경과
   `backend/tests/test_security.py`로 확인했다(§13).
 - Render·Cloudflare 인프라가 바뀌면 단 수도 바뀐다. 심사 전 `/api/system`으로 한 번 더 확인하면 좋다.
+
+## 15. 공공GitLab 보안 스캔 대응(D-030, 2026-11-06)
+실행 환경: 이 클라우드 세션(Linux). 제출 저장소 push가 pre-receive 훅에 거부된 뒤 세 지적을 고쳤다.
+
+| 지적 | 조치 | 확인 |
+|---|---|---|
+| Semgrep `use-defused-xml` (`extract.py`) | `xml.etree` → `defusedxml` | `pytest tests/test_documents.py` **13 passed**, XML 폭탄·XXE 거부 + 정상 HWPX 읽기 |
+| OSV-Scanner `esbuild 0.21.5`·`vite 5.4.11` 외 13건 | **vite 6.4.5** (esbuild 0.25.12) | `npm audit` **0 vulnerabilities** |
+| Trivy `DS-0002` (root 사용자) | `.trivyignore`에 근거 기재 | 훅 재시도 결과로만 확인 가능 |
+
+- `vite 5.4.21`(npm audit 제안)로는 해결되지 않았다 — vite 5.4.x가 `esbuild ^0.21.3`을 고정한다. 권고 범위가
+  `vite <=6.4.3`·`esbuild <=0.24.2`라 6.4.5가 최소 업그레이드다. `@vitejs/plugin-react 4.3.4`는 그대로 유지(vite ^6 지원).
+- Python 의존성: `pip-audit`으로 런타임(`--no-dev`)과 전체 그룹(`--all-groups`) 모두 **취약점 0건**.
+- vite 메이저 업그레이드 후 회귀 확인:
+
+| 검사 | 결과 |
+|---|---|
+| 백엔드 pytest | **195 passed**(§14-3의 194 + XML 폭탄 회귀 1건) |
+| `npm run typecheck` | 오류 0 |
+| `npm run build` | 성공(일반 번들 250.61 kB, 이전 233.34 kB) |
+| `npm run demo:data` | '샘플 검증 통과' |
+| `npm run build:demo` | 성공(249.53 kB) |
+| E2E 5종 | `flow`·`reference`·`examples`·`ux`·`demo` **전부 통과** |
+| └ `demo` 상세 | `/api` 0건·외부 AI 0건·404 0건·콘솔 오류 0건 — 시연판 읽기 전용 경계와 `demoSwap` 플러그인 정상 |
+
+미검증:
+- **훅 재통과 여부.** 이 세션은 `gitlab.aigov.go.kr`에 접속할 수 없어 스캔을 직접 돌려볼 수 없다. 사용자가 다시 push해 확인한다.
+- `.trivyignore`를 훅의 Trivy가 읽는지. 읽지 않으면 코드로 해결할 수 없고(USER app은 운영 기동 실패) 운영자 예외가 필요하다.
+- Docker 이미지 재빌드는 하지 않았다(`defusedxml` 추가는 `uv.lock`에 반영됨). CI docker job이 검증한다.

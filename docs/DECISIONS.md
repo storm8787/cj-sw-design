@@ -288,3 +288,33 @@
 - 안전성: `hops=2`도 위조에 영향받지 않는다. 체인에 값을 덧붙일 수 있는 것은 신뢰 구간의 프록시(Cloudflare·Render 라우터 2단)뿐이고,
   클라이언트가 왼쪽에 끼워 넣은 값은 오른쪽에서 2번째 위치를 바꾸지 못한다(테스트로 확인).
 - 남은 확인: Render·Cloudflare 인프라가 바뀌면 단 수도 바뀐다. 배포 후 `/api/system`의 `client`로 한 번 확인한다(`docs/DEPLOY.md` §4-1).
+
+### D-030 (2026-11-06) 공공GitLab pre-receive 보안 스캔 통과
+- 상황: 제출 저장소(공공GitLab)에 push할 때 pre-receive 훅이 보안 스캔을 돌려 거부했다.
+  `Gitleaks PASS / Semgrep FAIL / OSV-Scanner FAIL / Trivy FAIL / Syft PASS`.
+  비밀값(Gitleaks)·SBOM(Syft)은 통과했고, 나머지 셋을 고쳤다.
+- **Semgrep `use-defused-xml`** (`backend/app/docs_extract/extract.py`)
+  - 지적: 표준 `xml.etree`로 업로드 HWPX의 XML을 파싱 — DTD·엔티티 확장(XML 폭탄)·XXE에 취약.
+  - 업로드 문서는 신뢰할 수 없는 입력이므로(agent.md §7) **타당한 지적**이다. `defusedxml`로 교체했다.
+  - `extract()`가 모든 예외를 '읽지 못함'으로 기록하므로, DTD가 있는 문서는 파싱되지 않고 실패로 남는다.
+  - 회귀 테스트 `test_hwpx_xml_bomb_and_external_entity_rejected`: 엔티티 확장·외부 엔티티가 모두 거부되고
+    정상 HWPX는 그대로 읽히는 것을 확인.
+- **OSV-Scanner** (프런트엔드 빌드 도구)
+  - 지적: `esbuild 0.21.5`, `vite 5.4.11` 외 13건. 모두 **개발 서버 관련 권고**이고 배포 산출물(정적 `dist/`)에는
+    포함되지 않지만, 스캐너는 락파일 기준으로 판정한다.
+  - `npm audit`이 제안한 `vite 5.4.21`로는 **해결되지 않았다**(vite 5.4.x가 `esbuild ^0.21.3`을 고정).
+    권고 범위가 `vite <=6.4.3`, `esbuild <=0.24.2`라 **vite 6.4.5**로 올렸다(esbuild 0.25.12). `npm audit` 0건.
+  - `@vitejs/plugin-react 4.3.4`가 이미 `vite ^6.0.0`을 지원해 플러그인은 바꾸지 않았다(변경 최소화).
+  - Python 의존성은 `pip-audit`로 런타임·전체 그룹 모두 확인했고 취약점 0건이다.
+- **Trivy `DS-0002`** ("Image user should not be 'root'")
+  - 이 이미지는 Dockerfile에 `USER`를 두지 않고 `docker-entrypoint.sh`가 root로 시작해 마운트된 `/data`
+    소유자를 `app`(uid 10001)으로 맞춘 뒤 `setpriv`로 낮춰 실행한다. **서버 프로세스는 비루트다**(VALIDATION §5-4).
+  - `USER app`을 고정하면 배포 서비스가 디스크를 root 소유로 마운트해 기동이 실패한다
+    (`sqlite3.OperationalError: unable to open database file`, VALIDATION §5-4 실측).
+  - 심사 기간에 운영 중인 앱을 깨뜨릴 수 없어 **근거를 적은 `.trivyignore`로 예외 처리**했다.
+    훅이 `.trivyignore`를 읽지 않으면 운영자에게 예외를 요청한다(코드로는 해결할 수 없는 설계 상충).
+- 채택 안 함:
+  - `USER app` 고정(운영 기동 실패).
+  - vite 7 업그레이드(메이저 2단계, 제출 직전 위험 — 6.4.5로 권고 범위를 벗어나므로 불필요).
+  - 취약 의존성을 락파일에서 수동 제거·고정 해제(재현성 상실).
+- 남은 확인: 훅이 `.trivyignore`를 존중하는지(다음 push 결과로만 알 수 있음), Semgrep·OSV의 추가 지적 여부.

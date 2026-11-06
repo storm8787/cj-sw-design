@@ -195,3 +195,54 @@ def test_ai_doc_hallucination_dropped_and_consent(app_factory):
     assert [r["text"] for r in refs] == ["SFR-001 교육 신청 기능을 제공하여야 한다"]
     assert refs[0]["location"] == "2줄"  # 구간 범위가 아니라 원문 줄 위치
     assert any("허위" in w for w in j["result"]["warnings"])
+
+
+def test_hwpx_xml_bomb_and_external_entity_rejected():
+    """업로드 HWPX의 XML은 신뢰할 수 없는 입력 — DTD·엔티티 확장을 파싱하지 않는다(defusedxml).
+
+    공공GitLab pre-receive 보안 스캔(Semgrep use-defused-xml)에서 지적된 항목.
+    표준 xml.etree는 '빌리언 래프' 같은 엔티티 확장으로 서비스 거부를 당할 수 있다.
+    """
+    import io
+    import zipfile
+
+    from app.docs_extract import extract as dx
+
+    def hwpx_with_section(section_xml: str) -> bytes:
+        bio = io.BytesIO()
+        with zipfile.ZipFile(bio, "w", zipfile.ZIP_DEFLATED) as z:
+            z.writestr("mimetype", "application/hwp+zip")
+            z.writestr("Contents/section0.xml", section_xml)
+            z.writestr("META-INF/manifest.xml", "<manifest></manifest>")
+        return bio.getvalue()
+
+    ns = 'xmlns:hp="http://www.hancom.co.kr/hwpml/2011/paragraph" xmlns:hs="http://www.hancom.co.kr/hwpml/2011/section"'
+
+    # 1) 엔티티 확장(XML 폭탄) — 파싱하면 메모리가 폭증한다
+    bomb = (
+        '<?xml version="1.0"?>'
+        '<!DOCTYPE sec ['
+        '<!ENTITY a "AAAAAAAAAA">'
+        '<!ENTITY b "&a;&a;&a;&a;&a;&a;&a;&a;&a;&a;">'
+        '<!ENTITY c "&b;&b;&b;&b;&b;&b;&b;&b;&b;&b;">'
+        ']>'
+        f'<hs:sec {ns}><hp:p><hp:run><hp:t>&c;</hp:t></hp:run></hp:p></hs:sec>'
+    )
+    r = dx.extract("hwpx", hwpx_with_section(bomb))
+    assert r.status == "failed", r
+    assert not any("AAAAAAAAAA" in t for _, t in r.segments), "엔티티가 확장되면 안 된다"
+
+    # 2) 외부 엔티티(XXE) — 로컬 파일을 읽어 오면 안 된다
+    xxe = (
+        '<?xml version="1.0"?>'
+        '<!DOCTYPE sec [<!ENTITY x SYSTEM "file:///etc/passwd">]>'
+        f'<hs:sec {ns}><hp:p><hp:run><hp:t>&x;</hp:t></hp:run></hp:p></hs:sec>'
+    )
+    r2 = dx.extract("hwpx", hwpx_with_section(xxe))
+    assert r2.status == "failed", r2
+    assert not any("root:" in t for _, t in r2.segments), "외부 파일 내용이 들어오면 안 된다"
+
+    # 3) 정상 HWPX는 그대로 읽힌다(회귀 방지)
+    good = f'<?xml version="1.0" encoding="UTF-8"?><hs:sec {ns}><hp:p><hp:run><hp:t>정상 문단</hp:t></hp:run></hp:p></hs:sec>'
+    r3 = dx.extract("hwpx", hwpx_with_section(good))
+    assert r3.status == "ok" and any("정상 문단" in t for _, t in r3.segments), r3
