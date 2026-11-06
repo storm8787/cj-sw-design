@@ -109,19 +109,23 @@ def test_login_throttle_is_per_client_behind_proxy(app_factory):
 
 def test_system_reports_login_throttle_key(app_factory):
     """배포 환경에서 프록시 단 수를 잠금 없이 확인할 수 있는 진단값."""
-    app = app_factory(trusted_proxy_hops=1)
-    c = client_for(app)
-    info = c.get("/api/system", headers={"X-Forwarded-For": "1.2.3.4, 198.51.100.7"}).json()["client"]
-    assert info["forwarded_count"] == 2
+    # 프록시 단 수가 체인 길이와 같으면(1단 체인 + hops=1) 실제 접속자를 집고 경고가 없다
+    c = client_for(app_factory(trusted_proxy_hops=1))
+    info = c.get("/api/system", headers={"X-Forwarded-For": "198.51.100.7"}).json()["client"]
+    assert info["forwarded_count"] == 1
     assert info["trusted_proxy_hops"] == 1
     assert info["login_throttle_key"] == "198.51.100.7"
     assert info["shared_key_warning"] == ""
+    # 체인이 설정보다 길면(2단 체인 + hops=1) 중간 프록시 주소를 집을 수 있어 경고한다
+    info2 = c.get("/api/system", headers={"X-Forwarded-For": "1.2.3.4, 198.51.100.7"}).json()["client"]
+    assert info2["forwarded_count"] == 2 and info2["login_throttle_key"] == "198.51.100.7"
+    assert "중간 프록시·CDN" in info2["shared_key_warning"]
     # 프록시 단 수를 0으로 두면 모든 접속자가 프록시 주소 하나로 묶인다 → 경고
     app0 = app_factory(trusted_proxy_hops=0)
     c0 = client_for(app0)
     info0 = c0.get("/api/system", headers={"X-Forwarded-For": "1.2.3.4, 198.51.100.7"}).json()["client"]
     assert info0["login_throttle_key"] == info0["peer"]
-    assert "함께 걸릴 수 있습니다" in info0["shared_key_warning"]
+    assert "프록시 주소(peer)" in info0["shared_key_warning"]
 
 
 def test_trusted_proxy_hops_validated():
@@ -278,3 +282,33 @@ def test_csrf_403_declares_utf8_charset(app_factory):
     r = raw.post("/api/projects", json={"name": "x"})
     assert r.status_code == 403 and "charset=utf-8" in r.headers.get("content-type", "")
     assert "X-Requested-With" in r.json()["detail"]
+
+
+def test_client_info_warns_when_key_is_an_intermediate_proxy(app_factory):
+    """실제 Render 측정값 재현: 전달 체인 2단인데 hops=1이면 CDN 주소를 쓰게 되고, 경고가 나와야 한다.
+
+    2026-11-06 운영 배포 실측: peer 10.26.82.133, forwarded_count 2, hops 1 →
+    login_throttle_key가 172.69.166.86(Cloudflare 대역)이었고 경고가 비어 있었다.
+    """
+    chain = "203.0.113.50, 172.69.166.86"  # [실제 접속자, Cloudflare 엣지]
+
+    # hops=1 → 오른쪽 1번째(= CDN 주소)를 쓰므로 경고
+    c1 = client_for(app_factory(trusted_proxy_hops=1))
+    i1 = c1.get("/api/system", headers={"X-Forwarded-For": chain}).json()["client"]
+    assert i1["forwarded_count"] == 2 and i1["login_throttle_key"] == "172.69.166.86"
+    assert "중간 프록시·CDN" in i1["shared_key_warning"] and "2로 올리세요" in i1["shared_key_warning"]
+
+    # hops=2 → 실제 접속자 주소를 쓰고 경고 없음
+    c2 = client_for(app_factory(trusted_proxy_hops=2))
+    i2 = c2.get("/api/system", headers={"X-Forwarded-For": chain}).json()["client"]
+    assert i2["login_throttle_key"] == "203.0.113.50" and i2["shared_key_warning"] == ""
+
+    # hops=0 → 헤더 불신이라 peer로 묶임 → 공용 잠금 경고
+    c0 = client_for(app_factory(trusted_proxy_hops=0))
+    i0 = c0.get("/api/system", headers={"X-Forwarded-For": chain}).json()["client"]
+    assert i0["login_throttle_key"] == i0["peer"] and "프록시 주소(peer)" in i0["shared_key_warning"]
+
+    # 위조로 체인이 길어져도 hops=2는 실제 접속자를 집는다(경고는 더 올리라고 뜨지만 키는 안전)
+    forged = f"9.9.9.9, 1.2.3.4, {chain}"
+    i3 = c2.get("/api/system", headers={"X-Forwarded-For": forged}).json()["client"]
+    assert i3["login_throttle_key"] == "203.0.113.50"

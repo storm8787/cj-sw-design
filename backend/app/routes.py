@@ -115,12 +115,22 @@ def _client_info(request: Request, c: AppCtx) -> dict[str, Any]:
         "forwarded_count": len(parts),
         "trusted_proxy_hops": hops,
         "login_throttle_key": client_ip(peer, xff, hops),
-        "shared_key_warning": (
-            "접속자 식별값이 프록시 주소로 보입니다 — 로그인 실패 제한이 모든 접속자에게 함께 걸릴 수 있습니다. "
-            "TRUSTED_PROXY_HOPS를 프록시 단 수로 맞추세요."
-            if len(parts) >= 1 and client_ip(peer, xff, hops) == peer else ""
-        ),
+        "shared_key_warning": _key_warning(peer, xff, parts, hops),
     }
+
+
+def _key_warning(peer: str, xff: str | None, parts: list[str], hops: int) -> str:
+    """접속자 식별값이 실제 접속자가 아닐 수 있는 두 경우를 알린다(docs/DEPLOY.md §4-1)."""
+    key = client_ip(peer, xff, hops)
+    if parts and key == peer:
+        # 헤더를 아예 쓰지 않아 모든 접속자가 프록시 주소 하나로 묶인 경우
+        return ("접속자 식별값이 프록시 주소(peer)입니다 — 로그인 실패 제한이 모든 접속자에게 함께 걸립니다. "
+                f"TRUSTED_PROXY_HOPS를 {len(parts)}로 맞추세요.")
+    if len(parts) > hops:
+        # 집어 온 값보다 왼쪽에 항목이 더 있다 → 중간 프록시·CDN 주소를 쓰고 있을 수 있다
+        return (f"접속자 식별값이 중간 프록시·CDN 주소일 수 있습니다(전달 체인 {len(parts)}단 중 오른쪽 {hops}번째를 사용). "
+                f"이 값이 본인 공인 IP와 다르면 TRUSTED_PROXY_HOPS를 {len(parts)}로 올리세요.")
+    return ""
 
 
 @router.get("/standards/{sid}")

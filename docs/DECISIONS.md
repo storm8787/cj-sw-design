@@ -270,3 +270,21 @@
   - 점검용으로 `/api/system`을 인증 없이 열기(진단값에 접속 주소가 들어가고, 미로그인 API 차단 원칙을 깨뜨림).
   - 응답 본문을 ASCII로 escape(한글 가독성을 버림).
 - 남은 확인: 실제 Render 배포본에서 브라우저로 한글이 정상 표시되는지(이 세션은 배포 주소에 접속할 수 없음).
+
+### D-028 후속 (2026-11-06) Render 프록시 단 수 실측 → 2, 진단 경고 보완
+- D-028에서 "실제 Render 프록시 단 수 미확인"으로 남겼던 항목을 **운영 배포에서 실측해 확정**했다.
+- 측정값(사용자가 `/api/system`을 열어 전달): `peer 10.26.82.133`, `forwarded_count 2`, `trusted_proxy_hops 1`,
+  `login_throttle_key 172.69.166.86`, `shared_key_warning ""`.
+- 판정: `172.69.166.86`은 **Cloudflare 대역(172.64.0.0/13)**이다. 전달 체인은 `[실제 접속자, Cloudflare 엣지]` 2단이고,
+  `hops=1`은 오른쪽 1번째인 **Cloudflare 엣지 주소**를 집는다. 같은 엣지를 거치는 접속자들이 다시 한 키로 묶인다
+  (수정 전의 전면 공용 잠금보다는 좁지만 여전히 공유). 커뮤니티 보고대로 Render가 Cloudflare 뒤에 있다는 것이 확인됐다.
+- 선택:
+  - `render.yaml`의 `TRUSTED_PROXY_HOPS`를 **1 → 2**로 바꿨다(측정 근거를 주석에 적었다). 앱 기본값 0은 그대로다.
+  - `routes._key_warning()`을 새로 만들어 경고 조건을 둘로 늘렸다:
+    ① 식별값이 `peer`와 같음(헤더 미사용 → 전면 공용), ② **전달 체인이 설정보다 길다**(중간 프록시·CDN 주소를 쓸 수 있음).
+    기존 로직은 ①만 봐서 이번 경우를 놓쳤다(`key != peer`라 경고가 비어 있었다).
+- 바로잡은 테스트: `test_system_reports_login_throttle_key`가 '2단 체인 + hops=1 → 경고 없음'을 정상으로 단정하고 있었다.
+  그 단정이 곧 이 버그였으므로 고쳤고, 실측 사례를 `test_client_info_warns_when_key_is_an_intermediate_proxy`로 재현했다.
+- 안전성: `hops=2`도 위조에 영향받지 않는다. 체인에 값을 덧붙일 수 있는 것은 신뢰 구간의 프록시(Cloudflare·Render 라우터 2단)뿐이고,
+  클라이언트가 왼쪽에 끼워 넣은 값은 오른쪽에서 2번째 위치를 바꾸지 못한다(테스트로 확인).
+- 남은 확인: Render·Cloudflare 인프라가 바뀌면 단 수도 바뀐다. 배포 후 `/api/system`의 `client`로 한 번 확인한다(`docs/DEPLOY.md` §4-1).

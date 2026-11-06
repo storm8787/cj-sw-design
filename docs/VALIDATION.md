@@ -369,3 +369,40 @@
 - **실제 Render 배포본의 브라우저 표시** — 이 세션은 `sw-design-helper.onrender.com`에 접속할 수 없다(프록시 차단). 배포 후 사용자가 확인한다.
 - Windows 시험판 ZIP을 저장소에 등록한 상태는 만들지 않았다(파일은 사용자가 넣는다). `.gitignore` 동작만 확인했다:
   최상단·`release/`의 `.zip`은 커밋 가능, `dist/`·`backend/dist/`는 무시됨.
+
+### 14-1. `/api/system` 401의 원인 구분(2026-11-06 로컬 재현)
+사용자가 "관리자 로그인 상태에서 `/api/system`을 열었는데 401"을 보고해 세 경우를 로컬에서 실제로 재현했다.
+**세 경우 모두 응답이 똑같다**(`401 {"detail":"로그인이 필요합니다."}`)는 점이 혼란의 원인이었다.
+
+| 경우 | `/api/system` | 화면 `/` |
+|---|---|---|
+| 정상 로그인 쿠키 | **200** | 200 |
+| 쿠키 없음(미로그인) | 401 `로그인이 필요합니다.` | 200 |
+| **쿠키가 이전 `SECRET_KEY`로 서명됨**(재배포로 키 재생성) | **같은 401** | 200 |
+
+- 세션 만료(기본 12시간)도 서명 검증 실패로 같은 401이 된다.
+- 세션이 무효여도 화면(`/`)은 200이므로 "로그인된 것처럼 보이는데 API만 401"이 된다.
+  앱 자체는 정상 처리한다 — `frontend/src/api.ts`가 401에서 `onUnauthorized()`를 호출하고 `App.tsx`가 로그인 화면으로 되돌린다.
+- 로그인 쿠키는 `HttpOnly; Secure; SameSite=strict`다. `SameSite=strict`는 **다른 사이트에서 넘어온 최초 이동에 쿠키를 붙이지 않으므로**,
+  채팅·메일의 링크를 클릭해 API 주소로 들어가면 로그인돼 있어도 401이 난다. 주소창에 직접 입력하거나 그 페이지에서 새로고침하면 붙는다.
+  보안 속성을 진단 편의 때문에 낮추지 않았고(`Lax`로 변경 안 함), 구분 절차를 `docs/DEPLOY.md` §4-1에 적었다.
+
+### 14-2. Render 프록시 단 수 실측(2026-11-06, 운영 배포)
+사용자가 운영 앱에 로그인한 뒤 `/api/system`을 열어 전달한 값이다. **이 세션은 배포 주소에 접속할 수 없어 사용자가 측정했다.**
+
+```
+peer                : 10.26.82.133     (Render 내부 라우터)
+forwarded_count     : 2
+trusted_proxy_hops  : 1                (당시 render.yaml 값)
+login_throttle_key  : 172.69.166.86    (Cloudflare 대역 172.64.0.0/13)
+shared_key_warning  : ""               ← 경고가 비어 있던 것이 로직 구멍
+```
+
+- 전달 체인은 `[실제 접속자, Cloudflare 엣지]` 2단 → `hops=1`은 Cloudflare 엣지 주소를 집는다. `hops=2`가 맞다.
+- 조치: `render.yaml`을 `2`로, 경고 조건에 '체인이 설정보다 길다'를 추가(`routes._key_warning`).
+- 백엔드 pytest **194 passed**(§14의 193 + 실측 재현 1건). 실측 체인을 그대로 넣은 회귀 테스트:
+  `test_client_info_warns_when_key_is_an_intermediate_proxy` — hops=1에서 CDN 주소+경고, hops=2에서 접속자 주소+경고 없음,
+  hops=0에서 peer+공용 경고, 위조로 체인이 길어져도 hops=2는 접속자 주소를 집음.
+- 함께 확인된 것(운영 배포): AI 연결이 권장 구성 그대로 적용돼 있다 —
+  `openai · gpt-6-luna`, 작업별 `fp_candidates: gpt-6.1-sol`, `app_env production`, `auth_disabled false`.
+- 미검증: `hops=2` 적용 후의 실제 `login_throttle_key` 값(사용자가 Render 환경변수를 바꾼 뒤 §4-1로 재확인해야 한다).
