@@ -86,8 +86,10 @@
 | 엑셀 산출물 서식 | 완료 | 산출내역서형 서식·인쇄(2026-10-30). Microsoft Excel 화면·인쇄 미리보기는 미확인(LibreOffice로 확인) |
 
 ## 3. 테스트 결과 (상세: `docs/VALIDATION.md`)
-- API 응답 charset(2026-11-06, VALIDATION §14, D-029): 모든 JSON 응답에 `charset=utf-8` 명시. 백엔드 pytest **193 passed**.
-  브라우저로 API 주소를 직접 열었을 때 한글이 CP949로 읽혀 깨지던 문제. 실제 Render 배포본 표시는 사용자 확인 대기.
+- Render 로그인 제한 **운영 검증 완료**(2026-11-06, VALIDATION §14-3, D-028 후속): `TRUSTED_PROXY_HOPS=2` 적용 후
+  `login_throttle_key`가 접속자 본인 공인 IP로 확인. 운영 AI 구성도 권장값(`gpt-6-luna` + FP 후보 `gpt-6.1-sol`) 적용 확인.
+- API 응답 charset(2026-11-06, VALIDATION §14, D-029): 모든 JSON 응답에 `charset=utf-8` 명시. 백엔드 pytest **194 passed**.
+  브라우저로 API 주소를 직접 열었을 때 한글이 CP949로 읽혀 깨지던 문제.
 - 제출 전 검수 지적사항 수정(2026-11-06, VALIDATION §13, D-028): 백엔드 pytest **191 passed**, E2E 5종 통과,
   예제 A 엑셀 검산 35/35 일치(총액 54,780,140원 불변), 예제 C 검토 5·8·4 불변.
   로그인 실패 제한은 **로컬 프록시 재현 환경에서만** 검증(A 429 / B 200, 위조 우회 불가) — 실제 Render는 미확인.
@@ -108,8 +110,10 @@
 6. 이 작업 환경 특성: Docker Hub 429·ghcr 차단·TLS 검사 프록시 → 로컬 Docker 빌드는 mirror.gcr.io 기반 이미지 + `--secret id=extra_ca` 사용.
 7. 로그인 실패 제한(5회/5분)은 **접속자별**로 센다(D-028, 2026-11-06). `X-Forwarded-For`를 오른쪽에서 `TRUSTED_PROXY_HOPS`번째 값으로 식별하며,
    기본값 0은 헤더를 믿지 않고(직접 노출에서 안전) `render.yaml`이 `1`로 선언한다. 왼쪽 위조로는 제한을 피할 수 없다.
-   **Render 실측(2026-11-06): 전달 체인 2단**([접속자, Cloudflare 엣지]) → `render.yaml`은 `2`. 1로 두면 Cloudflare 엣지 주소로 묶인다.
-   인프라가 바뀌면 값도 바뀌므로 배포 후 `docs/DEPLOY.md` §4-1(`/api/system`의 `client`)로 한 번 확인한다.
+   **운영 환경 검증 완료(2026-11-06, VALIDATION §14-3):** Render는 전달 체인 2단([접속자, Cloudflare 엣지])이라 `render.yaml`은 `2`다.
+   적용 후 `login_throttle_key`가 접속자 본인 공인 IP(`211.57.153.2`, 한국 ISP 대역)로 확인됐다. `1`로 두면 Cloudflare 엣지 주소로 묶인다.
+   **잠금 동작 자체는 운영에서 확인하지 않았다**(심사 중 실제 잠금이 걸려 일부러 유발하지 않음) — 로컬 재현 환경과 테스트로 확인.
+   인프라가 바뀌면 단 수도 바뀌므로 `docs/DEPLOY.md` §4-1로 한 번 확인한다.
 8. 샘플 시연판은 읽기 전용 정적 화면(새 계산·생성 없음). 샘플 데이터는 커밋하지 않고 빌드 때 `backend/tools/demo_data.py`로 생성하므로, 화면·모델·계산을 바꾼 뒤 `npm run demo:data`가 실패하면 생성기(`build_a`·`build_b`)를 함께 고쳐야 Pages 배포가 진행됨.
 
 ## 5. 다음 작업(우선순위)

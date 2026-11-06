@@ -406,3 +406,33 @@ shared_key_warning  : ""               ← 경고가 비어 있던 것이 로직
 - 함께 확인된 것(운영 배포): AI 연결이 권장 구성 그대로 적용돼 있다 —
   `openai · gpt-6-luna`, 작업별 `fp_candidates: gpt-6.1-sol`, `app_env production`, `auth_disabled false`.
 - 미검증: `hops=2` 적용 후의 실제 `login_throttle_key` 값(사용자가 Render 환경변수를 바꾼 뒤 §4-1로 재확인해야 한다).
+
+### 14-3. `TRUSTED_PROXY_HOPS=2` 적용 후 운영 확인(2026-11-06) — **운영 환경 첫 검증**
+PR #13 병합·재배포 후 사용자가 운영 앱에 로그인해 `/api/system`을 열어 전달한 값이다.
+
+```
+peer                : 10.24.77.5       (§14-2의 10.26.82.133과 다름 — 재시작마다 바뀌는 내부 라우터 주소)
+forwarded_count     : 2
+trusted_proxy_hops  : 2                ← 적용됨
+login_throttle_key  : 211.57.153.2     ← 한국 ISP 대역(211.32.0.0/11, KRNIC) = 접속자 본인 공인 IP
+shared_key_warning  : ""
+```
+
+| 시점 | `login_throttle_key` | 성격 |
+|---|---|---|
+| 수정 전(D-028 이전) | `peer`(Render 내부 라우터) | 모든 접속자 공용 |
+| `hops=1`(§14-2) | `172.69.166.86` | Cloudflare 엣지 — 같은 엣지 접속자 공용 |
+| **`hops=2`(현재)** | **`211.57.153.2`** | **접속자 본인** ✅ |
+
+- **운영 환경에서 '접속자별 식별'이 확인됐다.** D-028·§13에 "실제 Render 환경에서는 미검증"으로 남겼던 항목 중
+  **식별 부분은 해소**됐다.
+- `peer`가 측정마다 달라진 것은 내부 라우터 주소가 고정이 아님을 보여 준다. 이 값으로 제한을 세던 수정 전 구조가
+  왜 모든 접속자를 묶었는지와 일치한다.
+- 같은 응답으로 운영 설정도 확인: `openai · gpt-6-luna`, 작업별 `fp_candidates: gpt-6.1-sol`,
+  `app_env production`, `auth_disabled false`, `max_upload_mb 30`, 기준 버전 `KOSA-FORM-2024G-241231`.
+
+여전히 미검증(의도적):
+- **잠금 동작 자체(A 5회 실패 → A만 429, B는 200)는 운영 서버에서 확인하지 않았다.** 심사 중 실제 잠금이 걸리므로
+  일부러 유발하지 않는다(`docs/DEPLOY.md` §4-1 3항). 동작은 로컬 프록시 재현 환경과
+  `backend/tests/test_security.py`로 확인했다(§13).
+- Render·Cloudflare 인프라가 바뀌면 단 수도 바뀐다. 심사 전 `/api/system`으로 한 번 더 확인하면 좋다.
