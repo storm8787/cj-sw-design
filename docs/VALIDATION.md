@@ -308,3 +308,36 @@
 - 사용자의 실제 프로젝트·운영(Render) 데이터는 열어 보지 않았다. 관찰 표는 원 미만 절사로 성립함을 계산으로만 확인했다.
 - Microsoft Excel 화면, 기관·계약 끝수 규정, 세무상 취급.
 - Windows 시험판 패키지는 PR의 Windows 워크플로 결과로 확인한다.
+
+## 13. 제출 전 검수 지적사항 수정(D-028, 2026-11-06)
+실행 환경: 이 클라우드 세션(Linux, Python 3.13, Node 22, LibreOffice). 샘플 모드, 가상 자료만.
+기준 커밋 `4810eb4`(= 당시 main)에서 시작했고 실제 유료 AI 호출은 없다(셸에 상속된 `OPENAI_API_KEY`로 호출하지 않았다).
+
+| 검사 | 결과 |
+|---|---|
+| 백엔드 pytest | **191 passed**(0 실패·0 건너뜀). 기준 185 + 신규 6건 |
+| └ `test_security.py` 신규 4건 | `client_ip` 오른쪽 집계·위조 무효, 프록시 뒤 A 제한·B 로그인, `/api/system` 진단값, `TRUSTED_PROXY_HOPS` 범위 검증 |
+| └ `test_security.py::test_default_does_not_trust_forwarded_header` | 기본값 0에서 헤더를 매번 바꿔도 제한 우회 불가 |
+| └ `test_excel_format.py::test_requirement_origin_column_not_mislabeled_as_user` | 문서 근거 없는 샘플 제안이 '사용자 입력'으로 표기되지 않음 |
+| 타입검사·일반 빌드·`demo:data`·시연 빌드 | 성공, '샘플 검증 통과' |
+| E2E(운영 모드 로컬 서버, 샘플 모드) | `flow`·`reference`·`examples`·`ux`·`demo` **5종 통과** |
+| 예제 A 엑셀 재확인 | 71.1 FP 추정 산정, 총액 54,780,140원(수정 전과 동일). LibreOffice 재계산 **검산 35/35 일치** |
+| 예제 A 요구사항 시트 | 사용자 7건 = '사용자 입력'/'사용자', 샘플 3건 = '문서 출처 없음'/'샘플 규칙 제안(AI 아님)'. 참고문서 항목은 파일명·위치 유지 |
+| 예제 C 검토 | `vendor_fp.xlsx`(화면 내려받기) 업로드 → 차이 발견 5·확인 필요 8·확인 일치 4, 심어 둔 오류 7종 전부 탐지(수정 전과 동일) |
+| 소스 실행 명령 | 셸에 `OPENAI_API_KEY`만 있어도 `AI_PROVIDER=sample`을 붙이면 기동(기본 연결 sample). 붙이지 않으면 종전처럼 `ConfigError` |
+
+로그인 실패 제한(프록시 뒤) 재현·검증 — **로컬 재현 환경에서만 확인**:
+- 환경: 컨테이너의 비루프백 주소(`192.0.2.2`)로 요청을 보내 Render처럼 `X-Forwarded-For`가 신뢰되지 않는 조건을 만들고,
+  `--no-proxy-headers`로 띄운 운영 모드 서버에 `TRUSTED_PROXY_HOPS=1`을 주었다. 가상 비밀번호만 사용했다.
+- 결과: A(`198.51.100.7`) 5회 실패 → A의 추가 시도는 올바른 비밀번호라도 **429**, B(`198.51.100.8`)는 올바른 비밀번호로 **200**.
+  왼쪽 위조(`198.51.100.8, 198.51.100.7`·`9.9.9.9, 1.2.3.4, 198.51.100.7`)로도 **429** — 우회 불가.
+- 기본값(`TRUSTED_PROXY_HOPS` 미지정 = 0): 헤더를 매번 바꿔도 6회째 **429**(위조로 새 키를 만들 수 없음), localhost 로그인 200.
+- `/api/system` 진단값 실측: `{"peer":"192.0.2.2","forwarded_count":1,"trusted_proxy_hops":1,"login_throttle_key":"198.51.100.8","shared_key_warning":""}`
+- `uvicorn --no-proxy-headers`가 유효한 옵션임을 확인했다(`uvicorn --help`).
+
+미검증:
+- **실제 Render 환경에서는 확인하지 못했다.** 이 세션은 네트워크 정책으로 `sw-design-helper.onrender.com`·`storm8787.github.io`·`render.com`에 접속할 수 없다(프록시 403/DNS 실패).
+  Render의 프록시 단 수와 `X-Forwarded-For` 처리는 공식 문서에 없어 확정하지 못했다 → 배포 후 `docs/DEPLOY.md` §4-1로 사용자가 확인한다.
+- Docker 이미지 재빌드(`--no-proxy-headers` 변경 포함)는 하지 않았다. 같은 옵션으로 로컬 uvicorn 기동은 확인했다.
+- Windows 시험판은 제출 커밋으로 다시 빌드해야 한다(이번 변경에 `backend/**`가 포함되므로 기존 artifact와 다르다).
+- 운영 서버에서 의도적인 로그인 잠금 시험은 하지 않았다(심사 중 실제 잠금을 피하기 위해).

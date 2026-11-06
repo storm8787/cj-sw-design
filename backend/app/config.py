@@ -51,6 +51,9 @@ class Settings:
     auth_disabled: bool = False
     cookie_secure: bool = False
     session_max_age: int = 60 * 60 * 12
+    # 로그인 실패 제한을 누구 단위로 셀지: 신뢰할 프록시 단 수(X-Forwarded-For를 오른쪽에서 셈, auth.client_ip).
+    # 기본 0 = 헤더를 믿지 않음(직접 노출·로컬에서 안전). 리버스 프록시 뒤 배포에서만 1 이상으로 '선언'한다.
+    trusted_proxy_hops: int = 0
     # AI: 여러 연결(profile)을 동시에 설정, 기본 연결은 ai_default
     ai_default: str = "sample"
     ai_profiles: dict[str, AIProfile] = field(default_factory=dict)
@@ -77,6 +80,7 @@ def load_settings() -> Settings:
     s.admin_password = os.environ.get("ADMIN_PASSWORD", "")
     s.auth_disabled = _bool("AUTH_DISABLED", False)
     s.cookie_secure = _bool("COOKIE_SECURE", False)
+    s.trusted_proxy_hops = int(os.environ.get("TRUSTED_PROXY_HOPS", "0"))
     s.ai_timeout_sec = float(os.environ.get("AI_TIMEOUT_SEC", "600"))
     s.ai_max_output_tokens = int(os.environ.get("AI_MAX_OUTPUT_TOKENS", "32000"))
     s.ai_profiles = load_ai_profiles()
@@ -108,6 +112,8 @@ def load_settings() -> Settings:
 def validate(s: Settings) -> None:
     if s.auth_disabled and not s.is_dev:
         raise ConfigError("AUTH_DISABLED=true 는 APP_ENV=development 에서만 허용됩니다.")
+    if s.trusted_proxy_hops < 0 or s.trusted_proxy_hops > 5:
+        raise ConfigError("TRUSTED_PROXY_HOPS 는 0~5 사이여야 합니다(프록시 없음 0, 배포 서비스는 보통 1).")
     if not s.auth_disabled:
         if len(s.secret_key) < 32:
             raise ConfigError("SECRET_KEY(32자 이상)를 설정해야 합니다. .env.example 참고")

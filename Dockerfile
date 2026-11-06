@@ -33,4 +33,6 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=5s CMD python -c "import os, urllib.request; urllib.request.urlopen('http://127.0.0.1:%s/api/health' % os.environ.get('PORT', '8000'), timeout=3)"
 ENTRYPOINT ["docker-entrypoint.sh"]
 # PORT: 배포 서비스가 지정하면 그 포트, 없으면 8000
-CMD ["sh", "-c", "exec uvicorn app.main:create_app --factory --host 0.0.0.0 --port ${PORT:-8000} --proxy-headers"]
+# --no-proxy-headers: uvicorn이 X-Forwarded-For의 '맨 왼쪽'(클라이언트가 위조할 수 있는 값)으로
+# client.host를 바꿔 쓰지 않게 한다. 접속자 식별은 app.auth.client_ip가 오른쪽에서 세어 처리한다(TRUSTED_PROXY_HOPS).
+CMD ["sh", "-c", "exec uvicorn app.main:create_app --factory --host 0.0.0.0 --port ${PORT:-8000} --no-proxy-headers"]

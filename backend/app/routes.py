@@ -11,7 +11,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from .ai import sample
-from .auth import COOKIE
+from .auth import COOKIE, client_ip
 from .docs_extract import extract as dx
 from .excel import export as xl
 from .fp import engine
@@ -64,7 +64,9 @@ def login(body: LoginIn, request: Request, response: Response):
     c = C(request)
     if c.auth.disabled:
         return {"ok": True, "auth_disabled": True}
-    token = c.auth.login(request.client.host if request.client else "?", body.password)
+    peer = request.client.host if request.client else "?"
+    who = client_ip(peer, request.headers.get("x-forwarded-for"), c.settings.trusted_proxy_hops)
+    token = c.auth.login(who, body.password)
     if not token:
         return JSONResponse({"detail": "비밀번호가 맞지 않습니다."}, status_code=401)
     response.set_cookie(COOKIE, token, httponly=True, samesite="strict", secure=c.settings.cookie_secure, max_age=c.settings.session_max_age, path="/")
@@ -97,6 +99,27 @@ def system(request: Request):
         "allowed_formats": sorted(dx.ALLOWED),
         "standards": c.registry.list(),
         "official_source_allowlist": c.settings.official_source_allowlist,
+        # 로그인 실패 제한이 '접속자별'로 걸리는지 배포 환경에서 확인하기 위한 진단값(로그인한 관리자 자신의 요청 기준).
+        # forwarded_count가 2 이상이면 프록시가 여러 단이므로 TRUSTED_PROXY_HOPS를 그 단 수로 맞춘다.
+        "client": _client_info(request, c),
+    }
+
+
+def _client_info(request: Request, c: AppCtx) -> dict[str, Any]:
+    peer = request.client.host if request.client else "?"
+    xff = request.headers.get("x-forwarded-for")
+    parts = [p.strip() for p in (xff or "").split(",") if p.strip()]
+    hops = c.settings.trusted_proxy_hops
+    return {
+        "peer": peer,
+        "forwarded_count": len(parts),
+        "trusted_proxy_hops": hops,
+        "login_throttle_key": client_ip(peer, xff, hops),
+        "shared_key_warning": (
+            "접속자 식별값이 프록시 주소로 보입니다 — 로그인 실패 제한이 모든 접속자에게 함께 걸릴 수 있습니다. "
+            "TRUSTED_PROXY_HOPS를 프록시 단 수로 맞추세요."
+            if len(parts) >= 1 and client_ip(peer, xff, hops) == peer else ""
+        ),
     }
 
 

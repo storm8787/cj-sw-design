@@ -18,8 +18,11 @@ cd frontend && npm ci && npm run build
 ```
 
 ```bash
-cd backend && APP_ENV=development AUTH_DISABLED=true uv run uvicorn app.main:create_app --factory --port 8000
+cd backend && AI_PROVIDER=sample APP_ENV=development AUTH_DISABLED=true uv run uvicorn app.main:create_app --factory --port 8000
 ```
+
+`AI_PROVIDER=sample`은 셸에 상속된 `OPENAI_API_KEY`를 무시합니다. 키만 있고 `OPENAI_MODEL`이 없으면
+`ConfigError: 기본 AI 연결 'openai' 설정이 부족합니다`로 기동이 거부됩니다. AI를 쓸 때는 이 값을 빼고 모델명을 함께 지정하세요.
 
 브라우저 http://localhost:8000 (빌드된 화면을 서버가 함께 제공). 화면 개발 중에는 `cd frontend && npm run dev`(http://localhost:5173, API는 8000으로 프록시).
 인증을 켠 운영 모드 실행과 Windows PowerShell 문법은 [구동안내서 2절](RUN_GUIDE.md#2-설치실행-절차). 비밀번호 해시 생성:
